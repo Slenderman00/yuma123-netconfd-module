@@ -1,0 +1,28 @@
+#!/usr/bin/python3
+from eastTester import eastTester
+
+t1 = eastTester()
+# current, voltage, power, resistance
+t1.set_channel(1)
+voltage_ch1 = t1.meas_voltage()
+current_ch1 = t1.meas_current()
+t1.set_channel(2)
+voltage_ch2 = t1.meas_voltage()
+current_ch2 = t1.meas_current()
+
+current_ch1 = current_ch1.replace("b'", "").replace("R", "").replace("\\r\\n'", "").strip()
+current_ch2 = current_ch2.replace("b'", "").replace("R", "").replace("\\r\\n'", "").strip()
+
+voltage_ch1 = voltage_ch1.replace("b'", "").replace("R", "").replace("\\r\\n'", "").strip()
+voltage_ch2 = voltage_ch2.replace("b'", "").replace("R", "").replace("\\r\\n'", "").strip()
+
+current_ch1 = format(float(current_ch1), ".9f")
+current_ch2 = format(float(current_ch2), ".9f")
+
+voltage_ch1 = format(float(voltage_ch1), ".9f")
+voltage_ch2 = format(float(voltage_ch2), ".9f")
+
+print('<load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">')
+print(f'<channel><name>out1</name><measurement><voltage>{voltage_ch1}</voltage><current>{current_ch1}</current></measurement></channel>')
+print(f'<channel><name>out2</name><measurement><voltage>{voltage_ch2}</voltage><current>{current_ch2}</current></measurement></channel>')
+print('</load-state>')

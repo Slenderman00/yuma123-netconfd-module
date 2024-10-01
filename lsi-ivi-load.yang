@@ -1,0 +1,62 @@
+module lsi-ivi-load {
+  yang-version 1.1;
+  namespace "urn:lsi:params:xml:ns:yang:ivi-load";
+  prefix load;
+
+  organization  "Lightside Instruments AS";
+
+  description
+    "Load management module designed
+     after the IVI Load Class which does not exist.";
+
+  revision 2024-09-30 {
+    description
+      "Initial.";
+  }
+
+  feature measurement;
+
+  
+  container load {
+    list channels {
+      key "name";
+      leaf name {
+        type string;
+      }
+      leaf resistance {
+        mandatory true;
+        description
+          "Specifies the resistance of the load.";
+        units "Ohm";
+        type decimal64 {
+          fraction-digits 9;
+        }
+      }
+    }
+  }
+
+  container load-state {
+    config false;
+    list channel {
+      key "name";
+      leaf name {
+        type string;
+      }
+      container measurement {
+        if-feature "measurement";
+        leaf voltage {
+          units "Volt";
+          type decimal64 {
+            fraction-digits 9;
+          }
+        }
+        leaf current {
+          units "Ampere";
+          type decimal64 {
+            fraction-digits 9;
+          }
+        }
+      }
+    }
+  }
+}

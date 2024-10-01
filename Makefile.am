@@ -1,13 +1,13 @@
-netconfmodule_LTLIBRARIES = liblsi-ivi-dc-power.la
+netconfmodule_LTLIBRARIES = liblsi-ivi-load.la
 
-liblsi_ivi_dc_power_la_SOURCES = \
-lsi-ivi-dc-power.c
+liblsi_ivi_load_la_SOURCES = \
+lsi-ivi-load.c
 
 # Depends on installed libyuma-dev
 liblsi_ivi_dc_power_la_CPPFLAGS = -I${includedir}/yuma/agt -I${includedir}/yuma/ncx -I${includedir}/yuma/platform $(XML_CPPFLAGS)
 liblsi_ivi_dc_power_la_LDFLAGS = -module -lyumaagt -lyumancx
 
-yang_DATA = lsi-ivi-dc-power.yang
+yang_DATA = lsi-ivi-load.yang
 
-bin_SCRIPTS = lsi-ivi-dc-power-set lsi-ivi-dc-power-gpib-e364xa-set lsi-ivi-dc-power-get lsi-ivi-dc-power-gpib-e364xa-get
+bin_SCRIPTS = lsi-ivi-load-set lsi-ivi-load-get
 
