@@ -6,23 +6,23 @@ t1 = eastTester()
 print(t1.system_beep())
 
 print(t1.set_channel(1))
-if 'CR' not in t1.ch_mode('?'):
-    print('setting channel mode')
-    print(t1.ch_mode('CR'))
+
+print('setting channel mode')
+print(t1.ch_mode('CR'))
 
 print(t1.resi_cr(sys.argv[2]))
 
 if sys.argv[1].upper() not in t1.ch_switch('?'):
-    print('turning on channel')
+    print(f'turning {sys.argv[1]} channel 1')
     print(t1.ch_switch(sys.argv[1]))
 
 print(t1.set_channel(2))
-if 'CR' not in t1.ch_mode('?'):
-    print('setting channel mode')
-    print(t1.ch_mode('CR'))
+
+print('setting channel mode')
+print(t1.ch_mode('CR'))
 
 print(t1.resi_cr(sys.argv[4]))
 
 if sys.argv[3].upper() not in t1.ch_switch('?'):
-    print('turning on channel')
+    print(f'turning {sys.argv[3]} channel 2')
     print(t1.ch_switch(sys.argv[3]))
