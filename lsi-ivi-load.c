@@ -86,6 +86,8 @@ static int update_config(val_value_t* config_cur_val, val_value_t* config_new_va
     status_t res;
 
     val_value_t *load_val;
+    val_value_t *load_new_val;
+    val_value_t *load_cur_val;
     val_value_t *channel_val;
     val_value_t *name_val;
     val_value_t *resistance_val=NULL;
@@ -98,12 +100,31 @@ static int update_config(val_value_t* config_cur_val, val_value_t* config_new_va
     char* ptr;
 
     if(config_new_val == NULL) {
-        load_val = NULL;
+        load_new_val = NULL;
     } else {
-        load_val = val_find_child(config_new_val,
+        load_new_val = val_find_child(config_new_val,
                                load_MOD,
                                "load");
     }
+
+    if(config_cur_val == NULL) {
+        load_cur_val = NULL;
+    } else {
+        load_cur_val = val_find_child(config_cur_val,
+                               load_MOD,
+                               "load");
+    }
+
+    if((load_cur_val==NULL) && (load_new_val==NULL)) {
+        return NO_ERR;
+    }
+
+    if((load_cur_val!=NULL) && (load_new_val!=NULL) && (0==val_compare_ex(load_new_val, load_cur_val ,TRUE))) {
+        printf("Identical configuration detected\n");
+        return NO_ERR;
+    }
+
+    load_val = load_new_val;
 
     if(load_val!=NULL) {
         for (channel_val = val_get_first_child(load_val);
