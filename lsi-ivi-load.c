@@ -155,7 +155,7 @@ static int update_config(val_value_t* config_cur_val, val_value_t* config_new_va
         sprintf(setcmd_buf+strlen(setcmd_buf), " %s %s", "on", resistance_str);
         free(resistance_str);
     } else {
-        sprintf(setcmd_buf+strlen(setcmd_buf), " off 0");
+        sprintf(setcmd_buf+strlen(setcmd_buf), " off 100");
     }
     if(resistance2_val) {
         char* resistance_str;
@@ -163,7 +163,7 @@ static int update_config(val_value_t* config_cur_val, val_value_t* config_new_va
         sprintf(setcmd_buf+strlen(setcmd_buf), " %s %s", "on", resistance_str);
         free(resistance_str);
     } else {
-        sprintf(setcmd_buf+strlen(setcmd_buf), " off 0");
+        sprintf(setcmd_buf+strlen(setcmd_buf), " off 100");
     }
 
 
