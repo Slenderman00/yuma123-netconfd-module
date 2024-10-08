@@ -3,12 +3,13 @@ import sys
 from eastTester import eastTester
 
 t1 = eastTester()
-print(t1.system_beep())
+#print(t1.system_beep())
 
 print(t1.set_channel(1))
 
-print('setting channel mode')
-print(t1.ch_mode('CR'))
+if 'CR' not in t1.ch_mode('?'):
+    print('setting channel mode')
+    print(t1.ch_mode('CR'))
 
 print(t1.resi_cr(sys.argv[2]))
 
@@ -18,8 +19,9 @@ if sys.argv[1].upper() not in t1.ch_switch('?'):
 
 print(t1.set_channel(2))
 
-print('setting channel mode')
-print(t1.ch_mode('CR'))
+if 'CR' not in t1.ch_mode('?'):
+    print('setting channel mode')
+    print(t1.ch_mode('CR'))
 
 print(t1.resi_cr(sys.argv[4]))
 
