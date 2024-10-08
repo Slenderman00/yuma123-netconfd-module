@@ -3,9 +3,9 @@ import sys
 from eastTester import eastTester
 
 t1 = eastTester()
-#print(t1.system_beep())
+# print(t1.system_beep())
 
-print(t1.set_channel(1))
+t1.set_channel(1)
 
 if 'CR' not in t1.ch_mode('?'):
     print('setting channel mode')
@@ -17,7 +17,7 @@ if sys.argv[1].upper() not in t1.ch_switch('?'):
     print(f'turning {sys.argv[1]} channel 1')
     print(t1.ch_switch(sys.argv[1]))
 
-print(t1.set_channel(2))
+t1.set_channel(2)
 
 if 'CR' not in t1.ch_mode('?'):
     print('setting channel mode')
