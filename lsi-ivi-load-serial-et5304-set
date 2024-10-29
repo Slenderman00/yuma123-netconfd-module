@@ -6,5 +6,5 @@ import vxi11
 instr = vxi11.vxi11.Instrument("TCPIP::localhost::gpib,5::INSTR")
 
 instr.write('MODE:RES')
-instr.write(f'INPUT {sys.argv[1]}')
+instr.write(f'INPUT {sys.argv[1].upper()}')
 instr.write(f'RES {sys.argv[2]}')
