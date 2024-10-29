@@ -4,11 +4,19 @@ import vxi11
 
 instr = vxi11.vxi11.Instrument(sys.argv[1])
 
-reply = instr.ask("MEAS:CURR?")
+try:
+    reply = instr.ask("MEAS:CURR?")
+except:
+    reply = 0
+
 current = float(reply)
 current = format(current, ".9f")
 
-reply = instr.ask("MEAS:VOLT?")
+try:
+    reply = instr.ask("MEAS:VOLT?")
+except:
+    reply = 0
+    
 voltage = float(reply)
 voltage = format(voltage, ".9f")
 
