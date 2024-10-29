@@ -2,7 +2,7 @@
 import sys
 import vxi11
 
-instr = vxi11.vxi11.Instrument(sys.argv[1])
+instr = vxi11.vxi11.Instrument("TCPIP::localhost::gpib,5::INSTR")
 
 try:
     reply = instr.ask("MEAS:CURR?")
@@ -16,7 +16,7 @@ try:
     reply = instr.ask("MEAS:VOLT?")
 except:
     reply = 0
-    
+
 voltage = float(reply)
 voltage = format(voltage, ".9f")
 
