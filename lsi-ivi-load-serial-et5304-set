@@ -1,2 +1,10 @@
-#!/usr/bin/python3'
-print("YEET")
+#!/usr/bin/python3
+import sys
+
+import vxi11
+
+instr = vxi11.vxi11.Instrument(sys.argv[1])
+
+instr.write('MODE:RES')
+instr.write(f'INPUT {sys.argv[2]}')
+instr.write(f'RES {sys.argv[3]}')
