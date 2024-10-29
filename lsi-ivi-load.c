@@ -92,7 +92,6 @@ static int update_config(val_value_t* config_cur_val, val_value_t* config_new_va
     val_value_t *name_val;
     val_value_t *resistance_val=NULL;
     val_value_t *resistance1_val=NULL;
-    val_value_t *resistance2_val=NULL;
 
     unsigned int i;
 
@@ -139,9 +138,7 @@ static int update_config(val_value_t* config_cur_val, val_value_t* config_new_va
 
             if(0==strcmp(VAL_STRING(name_val), "out1")) {
                      resistance1_val = resistance_val;
-            } else if(0==strcmp(VAL_STRING(name_val), "out2")) {
-                     resistance2_val = resistance_val;
-            } 
+            }
         }
     }
 
@@ -152,14 +149,6 @@ static int update_config(val_value_t* config_cur_val, val_value_t* config_new_va
     if(resistance1_val) {
         char* resistance_str;
         resistance_str = val_make_sprintf_string(resistance1_val);
-        sprintf(setcmd_buf+strlen(setcmd_buf), " %s %s", "on", resistance_str);
-        free(resistance_str);
-    } else {
-        sprintf(setcmd_buf+strlen(setcmd_buf), " off 999.99");
-    }
-    if(resistance2_val) {
-        char* resistance_str;
-        resistance_str = val_make_sprintf_string(resistance2_val);
         sprintf(setcmd_buf+strlen(setcmd_buf), " %s %s", "on", resistance_str);
         free(resistance_str);
     } else {
