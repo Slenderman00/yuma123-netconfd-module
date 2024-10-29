@@ -1,4 +1,20 @@
 #!/usr/bin/python3
+import sys
+import vxi11
+
+instr = vxi11.vxi11.Instrument(sys.argv[1])
+
+reply = instr.ask("MEAS:CURR?")
+current = float(reply)
+current = format(current, ".9f")
+
+reply = instr.ask("MEAS:VOLT?")
+voltage = float(reply)
+voltage = format(voltage, ".9f")
+
+
 print('<load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">')
-print('<channel><name>out1</name><measurement><voltage>0</voltage><current>0</current></measurement></channel>')
-print('</load-state>')
+print(
+    f"<channel><name>out1</name><measurement><voltage>{voltage}</voltage><current>{current}</current></measurement></channel>"
+)
+print("</load-state>")
