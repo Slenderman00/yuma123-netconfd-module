@@ -7,7 +7,6 @@ instr = vxi11.vxi11.Instrument("TCPIP::localhost::gpib,5::INSTR")
 # instr = vxi11.vxi11.Instrument("TCPIP::10.0.0.8::gpib,5::INSTR")
 
 instr.write("MODE:RES")
-instr.write(f"INPUT {sys.argv[1].upper()}")
 instr.write(f"RES {sys.argv[2]}")
 
 if len(sys.argv) >= 3 and sys.argv[1].upper() != "OFF":
@@ -22,10 +21,12 @@ if len(sys.argv) >= 4 and sys.argv[1].upper() != "OFF":
         instr.write("TRAN:DCYC 50")
         instr.write("TRAN ON")
     else:
-        print("yeet3")
+        print("yeet4")
         instr.write("TRAN OFF")
 else:
     instr.write("TRAN OFF")
 
 if sys.argv[1].upper() == "OFF":
     instr.write("TRAN OFF")
+
+instr.write(f"INPUT {sys.argv[1].upper()}")
