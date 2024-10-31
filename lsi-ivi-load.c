@@ -167,7 +167,7 @@ static int update_config(val_value_t* config_cur_val, val_value_t* config_new_va
 
     if(transient_resistance1_val) {
         char* resistance_str;
-        resistance_str = val_make_sprintf_string(resistance1_val);
+        resistance_str = val_make_sprintf_string(transient_resistance1_val);
         sprintf(setcmd_buf+strlen(setcmd_buf), " %s", resistance_str);
         free(resistance_str);
     } else {
