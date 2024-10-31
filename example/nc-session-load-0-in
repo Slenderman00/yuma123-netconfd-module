@@ -1,0 +1,522 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hello xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <capabilities>
+    <capability>urn:ietf:params:netconf:base:1.0</capability>
+    <capability>urn:ietf:params:netconf:base:1.1</capability>
+    <capability>urn:ietf:params:netconf:capability:candidate:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:confirmed-commit:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:confirmed-commit:1.1</capability>
+    <capability>urn:ietf:params:netconf:capability:rollback-on-error:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:validate:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:validate:1.1</capability>
+    <capability>urn:ietf:params:netconf:capability:url:1.0?scheme=file</capability>
+    <capability>urn:ietf:params:netconf:capability:xpath:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:notification:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:interleave:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:partial-lock:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:with-defaults:1.0?basic-mode=explicit&amp;also-supported=trim,report-all,report-all-tagged</capability>
+    <capability>http://helloworld.com/ns/helloworld?module=helloworld&amp;revision=2016-09-15</capability>
+    <capability>urn:ietf:params:xml:ns:yang:iana-crypt-hash?module=iana-crypt-hash&amp;revision=2014-08-06&amp;features=crypt-hash-md5,crypt-hash-sha-256,crypt-hash-sha-512</capability>
+    <capability>urn:ietf:params:xml:ns:yang:iana-if-type?module=iana-if-type&amp;revision=2014-05-08</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-inet-types?module=ietf-inet-types&amp;revision=2013-07-15</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-interfaces?module=ietf-interfaces&amp;revision=2014-05-08&amp;features=arbitrary-names,pre-provisioning,if-mib</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-ip?module=ietf-ip&amp;revision=2014-06-16&amp;features=ipv4-non-contiguous-netmasks,ipv6-privacy-autoconf</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-netconf-acm?module=ietf-netconf-acm&amp;revision=2018-02-14</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring?module=ietf-netconf-monitoring&amp;revision=2010-10-04</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-netconf-notifications?module=ietf-netconf-notifications&amp;revision=2012-02-06</capability>
+    <capability>urn:ietf:params:xml:ns:netconf:partial-lock:1.0?module=ietf-netconf-partial-lock&amp;revision=2009-10-19</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults?module=ietf-netconf-with-defaults&amp;revision=2011-06-01</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-system?module=ietf-system&amp;revision=2014-08-06&amp;features=radius,authentication,local-users,radius-authentication,ntp,ntp-udp-port,timezone-name,dns-udp-tcp-port</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-yang-library?module=ietf-yang-library&amp;revision=2016-06-21</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-yang-types?module=ietf-yang-types&amp;revision=2013-07-15</capability>
+    <capability>http://yuma123.org/ns/interfaces-notifications?module=interfaces-notifications&amp;revision=2016-11-12</capability>
+    <capability>http://lightside-instruments.com/ns/demo-line-display?module=lsi-demo-line-display&amp;revision=2022-06-12</capability>
+    <capability>urn:lsi:params:xml:ns:yang:ivi-load?module=lsi-ivi-load&amp;revision=2024-09-30&amp;features=measurement</capability>
+    <capability>urn:lsi:params:xml:ns:yang:lights?module=lsi-lights&amp;revision=2024-05-13</capability>
+    <capability>urn:lsi:params:xml:ns:yang:thermometers?module=lsi-thermometers&amp;revision=2022-07-25</capability>
+    <capability>urn:ietf:params:xml:ns:netmod:notification?module=nc-notifications&amp;revision=2008-07-14</capability>
+    <capability>urn:ietf:params:xml:ns:netconf:notification:1.0?module=notifications&amp;revision=2008-07-14</capability>
+    <capability>http://netconfcentral.org/ns/yuma-app-common?module=yuma-app-common&amp;revision=2012-08-16</capability>
+    <capability>http://netconfcentral.org/ns/yuma-mysession?module=yuma-mysession&amp;revision=2010-05-10</capability>
+    <capability>http://netconfcentral.org/ns/yuma-ncx?module=yuma-ncx&amp;revision=2012-01-13</capability>
+    <capability>http://netconfcentral.org/ns/yuma-proc?module=yuma-proc&amp;revision=2012-10-10</capability>
+    <capability>http://netconfcentral.org/ns/yuma-time-filter?module=yuma-time-filter&amp;revision=2012-11-15</capability>
+    <capability>http://netconfcentral.org/ns/yuma-types?module=yuma-types&amp;revision=2012-06-01</capability>
+    <capability>http://yuma123.org/ns/yuma123-mysession-cache?module=yuma123-mysession-cache&amp;revision=2018-11-12</capability>
+    <capability>urn:ietf:params:xml:ns:netconf:base:1.0?module=ietf-netconf&amp;revision=2011-06-01&amp;features=writable-running,candidate,confirmed-commit,rollback-on-error,validate,startup,url,xpath</capability>
+    <capability>http://yuma123.org/ns/yuma123-netconf-types?module=yuma123-netconf-types&amp;revision=2017-06-23</capability>
+    <capability>http://yuma123.org/ns/yuma123-system?module=yuma123-system&amp;revision=2017-03-26</capability>
+    <capability>urn:ietf:params:netconf:capability:yang-library:1.0?revision=2016-06-21&amp;module-set-id=c39d95d1ef9352d74ee040dccc5361ac9a0a7707</capability>
+  </capabilities>
+  <session-id>4</session-id>
+</hello>]]>]]>
+#1986
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-04T13:13:13Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <modules-state xmlns="urn:ietf:params:xml:ns:yang:ietf-yang-library">
+      <module>
+        <name>helloworld</name>
+        <revision>2016-09-15</revision>
+        <namespace>http://helloworld.com/ns/helloworld</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>iana-crypt-hash</name>
+        <revision>2014-08-06</revision>
+        <namespace>urn:ietf:params:xml:ns:yang:iana-crypt-hash</namespace>
+        <conformance-type>import</conformance-type>
+        <feature>crypt-hash-md5</feature>
+        <feature>crypt-hash-sha-256</feature>
+        <feature>crypt-hash-sha-512</feature>
+      </module>
+      <module>
+        <name>iana-if-type</name>
+        <revision>2014-05-08</revision>
+        <namespace>urn:ietf:params:xml:ns:yang:iana-if-type</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>ietf-inet-types</name>
+        <revision>2013-07-15</revision>
+        <namespace>urn:ietf:params:xml:ns:yang:ietf-inet-types</namespace>
+        <conformance-type>import</conformance-type>
+      </module>
+      <module>
+        <name>ietf-interfaces</name>
+        <revision>2014-05-08</revision>
+        <namespace>urn:ietf:params:xml:ns:yang:ietf-interfaces</namespace>
+        <conformance-type>implement</conformance-type>
+        <feature>arbitrary-names</feature>
+        <feature>pre-provisioning</feature>
+        <feature>if-mib</feature>
+      </module>
+      <module>
+        <name>ietf-ip</name>
+        <revision>2014-06-16</revision>
+        <namespace>urn:ietf:params:xml:ns:yang:ietf-ip</namespace>
+        <conformance-type>implement</conformance-type>
+        <feature>ipv4-non-contiguous-netmasks</feature>
+        <featur
+#1986
+e>ipv6-privacy-autoconf</feature>
+      </module>
+      <module>
+        <name>ietf-netconf-acm</name>
+        <revision>2018-02-14</revision>
+        <namespace>urn:ietf:params:xml:ns:yang:ietf-netconf-acm</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>ietf-netconf-monitoring</name>
+        <revision>2010-10-04</revision>
+        <namespace>urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>ietf-netconf-notifications</name>
+        <revision>2012-02-06</revision>
+        <namespace>urn:ietf:params:xml:ns:yang:ietf-netconf-notifications</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>ietf-netconf-partial-lock</name>
+        <revision>2009-10-19</revision>
+        <namespace>urn:ietf:params:xml:ns:netconf:partial-lock:1.0</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>ietf-netconf-with-defaults</name>
+        <revision>2011-06-01</revision>
+        <namespace>urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>ietf-system</name>
+        <revision>2014-08-06</revision>
+        <namespace>urn:ietf:params:xml:ns:yang:ietf-system</namespace>
+        <conformance-type>implement</conformance-type>
+        <feature>radius</feature>
+        <feature>authentication</feature>
+        <feature>local-users</feature>
+        <feature>radius-authentication</feature>
+        <feature>ntp</feature>
+        <feature>ntp-udp-port</feature>
+        <feature>timezone-name</feature>
+        <feature>dns-udp-tcp-port</feature>
+      </module>
+      <module>
+        <name>ietf-yang-library</name>
+        <revision>2016-06-21</revision>
+        <namespace>urn:iet
+#1986
+f:params:xml:ns:yang:ietf-yang-library</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>ietf-yang-types</name>
+        <revision>2013-07-15</revision>
+        <namespace>urn:ietf:params:xml:ns:yang:ietf-yang-types</namespace>
+        <conformance-type>import</conformance-type>
+      </module>
+      <module>
+        <name>interfaces-notifications</name>
+        <revision>2016-11-12</revision>
+        <namespace>http://yuma123.org/ns/interfaces-notifications</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>lsi-demo-line-display</name>
+        <revision>2022-06-12</revision>
+        <namespace>http://lightside-instruments.com/ns/demo-line-display</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>lsi-ivi-load</name>
+        <revision>2024-09-30</revision>
+        <namespace>urn:lsi:params:xml:ns:yang:ivi-load</namespace>
+        <conformance-type>implement</conformance-type>
+        <feature>measurement</feature>
+      </module>
+      <module>
+        <name>lsi-lights</name>
+        <revision>2024-05-13</revision>
+        <namespace>urn:lsi:params:xml:ns:yang:lights</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>lsi-thermometers</name>
+        <revision>2022-07-25</revision>
+        <namespace>urn:lsi:params:xml:ns:yang:thermometers</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>nc-notifications</name>
+        <revision>2008-07-14</revision>
+        <namespace>urn:ietf:params:xml:ns:netmod:notification</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>notifications</name>
+        <revision>2008-07-14</revision>
+        <namespace>urn:ietf:params:xml:ns:netconf:notification:1.0</names
+#1986
+pace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>yuma-app-common</name>
+        <revision>2012-08-16</revision>
+        <namespace>http://netconfcentral.org/ns/yuma-app-common</namespace>
+        <conformance-type>import</conformance-type>
+      </module>
+      <module>
+        <name>yuma-mysession</name>
+        <revision>2010-05-10</revision>
+        <namespace>http://netconfcentral.org/ns/yuma-mysession</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>yuma-ncx</name>
+        <revision>2012-01-13</revision>
+        <namespace>http://netconfcentral.org/ns/yuma-ncx</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>yuma-proc</name>
+        <revision>2012-10-10</revision>
+        <namespace>http://netconfcentral.org/ns/yuma-proc</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>yuma-time-filter</name>
+        <revision>2012-11-15</revision>
+        <namespace>http://netconfcentral.org/ns/yuma-time-filter</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>yuma-types</name>
+        <revision>2012-06-01</revision>
+        <namespace>http://netconfcentral.org/ns/yuma-types</namespace>
+        <conformance-type>import</conformance-type>
+      </module>
+      <module>
+        <name>yuma123-mysession-cache</name>
+        <revision>2018-11-12</revision>
+        <namespace>http://yuma123.org/ns/yuma123-mysession-cache</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module>
+        <name>ietf-netconf</name>
+        <revision>2011-06-01</revision>
+        <namespace>urn:ietf:params:xml:ns:netconf:base:1.0</namespace>
+        <conformance-type>implement</conformance-type>
+        <feature>writable-running</feature>
+        <f
+#859
+eature>candidate</feature>
+        <feature>confirmed-commit</feature>
+        <feature>rollback-on-error</feature>
+        <feature>validate</feature>
+        <feature>startup</feature>
+        <feature>url</feature>
+        <feature>xpath</feature>
+      </module>
+      <module>
+        <name>yuma123-netconf-types</name>
+        <revision>2017-06-23</revision>
+        <namespace>http://yuma123.org/ns/yuma123-netconf-types</namespace>
+        <conformance-type>import</conformance-type>
+      </module>
+      <module>
+        <name>yuma123-system</name>
+        <revision>2017-03-26</revision>
+        <namespace>http://yuma123.org/ns/yuma123-system</namespace>
+        <conformance-type>implement</conformance-type>
+      </module>
+      <module-set-id>c39d95d1ef9352d74ee040dccc5361ac9a0a7707</module-set-id>
+    </modules-state>
+  </data>
+</rpc-reply>
+##
+
+#1786
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="2" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring">
+module lsi-demo-line-display {
+  namespace "http://lightside-instruments.com/ns/demo-line-display";
+  prefix demo-ld;
+
+//  import ietf-netconf-client {
+//    prefix ncc;
+//  }
+
+//  import ietf-tcp-client {
+//    prefix tcpc;
+//  }
+
+//  import ietf-tcp-server {
+//    prefix tcps;
+//  }
+
+//  import ietf-ssh-client {
+//    prefix sshc;
+//  }
+
+//  import ietf-tls-client {
+//    prefix tlsc;
+//  }
+
+//  import ietf-keystore {
+//    prefix ks;
+//  }
+
+
+
+  organization
+    "Lightside Instruments AS";
+  description
+    "Demo module for management of a
+     display that can show single line
+     e.g. row with symbols.";
+
+  revision 2022-06-12 {
+    description
+      "Merged augment modules.";
+  }
+
+
+  container line-display {
+    presence "enable display";
+    choice type {
+      case static {
+        leaf text {
+          type string;
+        }
+      }
+
+      case dynamic {
+        choice source {
+          case remote {
+            leaf remote-instance-id {
+              type string;
+              mandatory true;
+            }
+
+ //           container remote-netconf {
+ //             uses ncc:netconf-client-initiate-stack-grouping;
+ //           }
+          }
+          case local {
+            leaf instance-id {
+              type instance-identifier {
+                require-instance false;
+              }
+              mandatory true;
+            }
+          }
+        }
+        leaf update-interval {
+          type uint32;
+          units "milliseconds";
+          mandatory true;
+        }
+      }
+    }
+  }
+}
+
+  </data>
+</rpc-reply>
+##
+
+#1195
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="3" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring">
+module lsi-lights {
+  yang-version 1.1;
+  namespace "urn:lsi:params:xml:ns:yang:lights";
+  prefix lights;
+
+  organization
+    "Lightside Instruments AS";
+  description
+    "Simple lights management model.";
+
+  revision 2024-05-13 {
+    description
+      "Initial.";
+  }
+
+  container lights {
+    list light {
+      key "name";
+      description
+        "List of light sources.";
+      leaf name {
+        type string {
+          length "1..10";
+        }
+      }
+      choice type {
+        case adjustable-rgb {
+          leaf red {
+            mandatory true;
+            type uint8 {
+              range "0..255";
+            }
+          }
+          leaf green {
+            mandatory true;
+            type uint8 {
+              range "0..255";
+            }
+          }
+          leaf blue {
+            mandatory true;
+            type uint8 {
+              range "0..255";
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+  </data>
+</rpc-reply>
+##
+
+#871
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="4" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring">
+module lsi-thermometers {
+  yang-version 1.1;
+  namespace "urn:lsi:params:xml:ns:yang:thermometers";
+  prefix thermometers;
+
+  organization  "Lightside Instruments AS";
+
+  description
+    "Thermometers monitoring module.";
+
+  revision 2022-07-25 {
+    description
+      "Initial version.";
+  }
+
+  container thermometers {
+    config false;
+    list thermometer {
+      key "name";
+      leaf name {
+        type string;
+      }
+      leaf value {
+        description
+          "Temperature in degrees Celsius multiplied by 100.";
+        type int32 {
+          range "-27315..max";
+        }
+      }
+    }
+  }
+}
+
+  </data>
+</rpc-reply>
+##
+
+#740
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="5" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns:load="urn:lsi:params:xml:ns:yang:ivi-load"
+  xmlns:ncx="http://netconfcentral.org/ns/yuma-ncx"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <rpc-error>
+    <error-type>application</error-type>
+    <error-tag>data-missing</error-tag>
+    <error-severity>error</error-severity>
+    <error-app-tag>data-incomplete</error-app-tag>
+    <error-path>/nc:rpc/nc:edit-config/nc:config/load:load</error-path>
+    <error-message xml:lang="en">data missing</error-message>
+    <error-info>
+      <error-number xmlns="http://netconfcentral.org/ns/yuma-ncx">272</error-number>
+    </error-info>
+  </rpc-error>
+</rpc-reply>
+##
+
+#187
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="6" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <ok/>
+</rpc-reply>
+##
+
+#187
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="7" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <ok/>
+</rpc-reply>
+##
+
+#187
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="8" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <ok/>
+</rpc-reply>
+##

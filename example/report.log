@@ -1,0 +1,536 @@
+
+yangcli: Starting NETCONF session for y123 on localhost
+
+NETCONF session established for y123 on localhost
+
+Client Session Id: 1
+Server Session Id: 2
+
+Server Protocol Capabilities
+   base:1.0
+   candidate:1.0
+   confirmed-commit:1.0
+   rollback-on-error:1.0
+   validate:1.0
+   url:1.0
+   xpath:1.0
+   notification:1.0
+   interleave:1.0
+   partial-lock:1.0
+   with-defaults:1.0
+   base:1.1
+   validate:1.1
+   confirmed-commit:1.1
+   yang-library:1.0
+
+Server Module Capabilities
+   iana-crypt-hash@2014-08-06
+      Features: 
+         crypt-hash-md5 
+         crypt-hash-sha-256 
+         crypt-hash-sha-512 
+   ietf-inet-types@2013-07-15
+   ietf-netconf-acm@2018-02-14
+   ietf-netconf-monitoring@2010-10-04
+   ietf-netconf-notifications@2012-02-06
+   ietf-netconf-partial-lock@2009-10-19
+   ietf-netconf-with-defaults@2011-06-01
+   ietf-system@2014-08-06
+      Features: 
+         radius 
+         authentication 
+         local-users 
+         radius-authentication 
+         ntp 
+         ntp-udp-port 
+         timezone-name 
+         dns-udp-tcp-port 
+   ietf-yang-library@2016-06-21
+   ietf-yang-types@2013-07-15
+   lsi-ivi-load@2024-09-30
+      Features: 
+         measurement 
+   nc-notifications@2008-07-14
+   notifications@2008-07-14
+   yuma-app-common@2012-08-16
+   yuma-mysession@2010-05-10
+   yuma-ncx@2012-01-13
+   yuma-proc@2012-10-10
+   yuma-time-filter@2012-11-15
+   yuma-types@2012-06-01
+   yuma123-mysession-cache@2018-11-12
+   ietf-netconf@2011-06-01
+      Features: 
+         writable-running 
+         candidate 
+         confirmed-commit 
+         rollback-on-error 
+         validate 
+         startup 
+         url 
+         xpath 
+   yuma123-netconf-types@2017-06-23
+   yuma123-system@2017-03-26
+
+Server Enterprise Capabilities
+   None
+
+Protocol version set to: RFC 6241 (base:1.1)
+Default target set to: <candidate>
+Save operation mapped to: commit
+Default with-defaults behavior: explicit
+Additional with-defaults behavior: trim,report-all,report-all-tagged
+Current module-set-id: 2295c036214886c4da960bae9e73eb5dd2125392.
+
+
+Checking Server Modules...
+Connecting to network: lsi
+Connect to load-0 (server=localhost user=y123) password=None ncport=830:
+[OK] Connecting to server=localhost:
+[OK] Receiving <hello> =<?xml version="1.0" encoding="UTF-8"?>
+<hello xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <capabilities>
+    <capability>urn:ietf:params:netconf:base:1.0</capability>
+    <capability>urn:ietf:params:netconf:base:1.1</capability>
+    <capability>urn:ietf:params:netconf:capability:candidate:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:confirmed-commit:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:confirmed-commit:1.1</capability>
+    <capability>urn:ietf:params:netconf:capability:rollback-on-error:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:validate:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:validate:1.1</capability>
+    <capability>urn:ietf:params:netconf:capability:url:1.0?scheme=file</capability>
+    <capability>urn:ietf:params:netconf:capability:xpath:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:notification:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:interleave:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:partial-lock:1.0</capability>
+    <capability>urn:ietf:params:netconf:capability:with-defaults:1.0?basic-mode=explicit&amp;also-supported=trim,report-all,report-all-tagged</capability>
+    <capability>urn:ietf:params:xml:ns:yang:iana-crypt-hash?module=iana-crypt-hash&amp;revision=2014-08-06&amp;features=crypt-hash-md5,crypt-hash-sha-256,crypt-hash-sha-512</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-inet-types?module=ietf-inet-types&amp;revision=2013-07-15</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-netconf-acm?module=ietf-netconf-acm&amp;revision=2018-02-14</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring?module=ietf-netconf-monitoring&amp;revision=2010-10-04</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-netconf-notifications?module=ietf-netconf-notifications&amp;revision=2012-02-06</capability>
+    <capability>urn:ietf:params:xml:ns:netconf:partial-lock:1.0?module=ietf-netconf-partial-lock&amp;revision=2009-10-19</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults?module=ietf-netconf-with-defaults&amp;revision=2011-06-01</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-system?module=ietf-system&amp;revision=2014-08-06&amp;features=radius,authentication,local-users,radius-authentication,ntp,ntp-udp-port,timezone-name,dns-udp-tcp-port</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-yang-library?module=ietf-yang-library&amp;revision=2016-06-21</capability>
+    <capability>urn:ietf:params:xml:ns:yang:ietf-yang-types?module=ietf-yang-types&amp;revision=2013-07-15</capability>
+    <capability>urn:lsi:params:xml:ns:yang:ivi-load?module=lsi-ivi-load&amp;revision=2024-09-30&amp;features=measurement</capability>
+    <capability>urn:ietf:params:xml:ns:netmod:notification?module=nc-notifications&amp;revision=2008-07-14</capability>
+    <capability>urn:ietf:params:xml:ns:netconf:notification:1.0?module=notifications&amp;revision=2008-07-14</capability>
+    <capability>http://netconfcentral.org/ns/yuma-app-common?module=yuma-app-common&amp;revision=2012-08-16</capability>
+    <capability>http://netconfcentral.org/ns/yuma-mysession?module=yuma-mysession&amp;revision=2010-05-10</capability>
+    <capability>http://netconfcentral.org/ns/yuma-ncx?module=yuma-ncx&amp;revision=2012-01-13</capability>
+    <capability>http://netconfcentral.org/ns/yuma-proc?module=yuma-proc&amp;revision=2012-10-10</capability>
+    <capability>http://netconfcentral.org/ns/yuma-time-filter?module=yuma-time-filter&amp;revision=2012-11-15</capability>
+    <capability>http://netconfcentral.org/ns/yuma-types?module=yuma-types&amp;revision=2012-06-01</capability>
+    <capability>http://yuma123.org/ns/yuma123-mysession-cache?module=yuma123-mysession-cache&amp;revision=2018-11-12</capability>
+    <capability>urn:ietf:params:xml:ns:netconf:base:1.0?module=ietf-netconf&amp;revision=2011-06-01&amp;features=writable-running,candidate,confirmed-commit,rollback-on-error,validate,startup,url,xpath</capability>
+    <capability>http://yuma123.org/ns/yuma123-netconf-types?module=yuma123-netconf-types&amp;revision=2017-06-23</capability>
+    <capability>http://yuma123.org/ns/yuma123-system?module=yuma123-system&amp;revision=2017-03-26</capability>
+    <capability>urn:ietf:params:netconf:capability:yang-library:1.0?revision=2016-06-21&amp;module-set-id=2295c036214886c4da960bae9e73eb5dd2125392</capability>
+  </capabilities>
+  <session-id>1</session-id>
+</hello>:
+OK
+Connecting to YANG network: lsi
+Connect to YANG device load-0 (server=localhost user=y123) password=None ncport=830:
+OK
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T15:57:03Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">
+    </nacm>
+  </data>
+</rpc-reply>
+1-config-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">\n    </nacm>\n  </data>\n'
+1-config-load-0.xml - end
+Transaction 1 started: 2024-10-02T17:59:17
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <ok/>
+</rpc-reply>
+Transaction 1 completed: 2024-10-02T17:59:17
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T15:59:17Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <resistance>5.000000000</resistance>
+      </channel>
+    </load>
+    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">
+    </nacm>
+  </data>
+</rpc-reply>
+2-config-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <resistance>5.000000000</resistance>\n      </channel>\n    </load>\n    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">\n    </nacm>\n  </data>\n'
+2-config-load-0.xml - end
+Transaction 2 started: 2024-10-02T17:59:17
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <ok/>
+</rpc-reply>
+Transaction 2 completed: 2024-10-02T17:59:25
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T15:59:25Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <resistance>5.000000000</resistance>
+      </channel>
+    </load>
+    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">
+    </nacm>
+  </data>
+</rpc-reply>
+3-config-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <resistance>5.000000000</resistance>\n      </channel>\n    </load>\n    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">\n    </nacm>\n  </data>\n'
+3-config-load-0.xml - end
+Transaction 3 started: 2024-10-02T17:59:25
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <ok/>
+</rpc-reply>
+Transaction 3 completed: 2024-10-02T17:59:25
+3-state-0
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T15:59:25Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <resistance>5.000000000</resistance>
+      </channel>
+    </load>
+    <load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <measurement>
+          <voltage>5.090000000</voltage>
+          <current>0.0</current>
+        </measurement>
+      </channel>
+      <channel>
+        <name>out1</name>
+        <measurement>
+          <voltage>20.402000000</voltage>
+          <current>0.0</current>
+        </measurement>
+      </channel>
+    </load-state>
+  </data>
+</rpc-reply>
+3-state-0-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <resistance>5.000000000</resistance>\n      </channel>\n    </load>\n    <load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <measurement>\n          <voltage>5.090000000</voltage>\n          <current>0.0</current>\n        </measurement>\n      </channel>\n      <channel>\n        <name>out1</name>\n        <measurement>\n          <voltage>20.402000000</voltage>\n          <current>0.0</current>\n        </measurement>\n      </channel>\n    </load-state>\n  </data>'
+3-state-0-load-0.xml - end
+# 5 Ohm, 5.09 v, 0.0 l
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T15:59:29Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <resistance>4.950000000</resistance>
+      </channel>
+    </load>
+    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">
+    </nacm>
+  </data>
+</rpc-reply>
+4-config-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <resistance>4.950000000</resistance>\n      </channel>\n    </load>\n    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">\n    </nacm>\n  </data>\n'
+4-config-load-0.xml - end
+Transaction 4 started: 2024-10-02T17:59:29
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <ok/>
+</rpc-reply>
+Transaction 4 completed: 2024-10-02T17:59:37
+4-state-0
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T15:59:29Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <resistance>4.950000000</resistance>
+      </channel>
+    </load>
+    <load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <measurement>
+          <voltage>5.090000000</voltage>
+          <current>0.0</current>
+        </measurement>
+      </channel>
+      <channel>
+        <name>out1</name>
+        <measurement>
+          <voltage>20.402000000</voltage>
+          <current>0.0</current>
+        </measurement>
+      </channel>
+    </load-state>
+  </data>
+</rpc-reply>
+4-state-0-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <resistance>4.950000000</resistance>\n      </channel>\n    </load>\n    <load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <measurement>\n          <voltage>5.090000000</voltage>\n          <current>0.0</current>\n        </measurement>\n      </channel>\n      <channel>\n        <name>out1</name>\n        <measurement>\n          <voltage>20.402000000</voltage>\n          <current>0.0</current>\n        </measurement>\n      </channel>\n    </load-state>\n  </data>'
+4-state-0-load-0.xml - end
+# 4.95 Ohm, 5.09 v, 0.0 l
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T15:59:41Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <resistance>4.900000000</resistance>
+      </channel>
+    </load>
+    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">
+    </nacm>
+  </data>
+</rpc-reply>
+5-config-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <resistance>4.900000000</resistance>\n      </channel>\n    </load>\n    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">\n    </nacm>\n  </data>\n'
+5-config-load-0.xml - end
+Transaction 5 started: 2024-10-02T17:59:41
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <ok/>
+</rpc-reply>
+Transaction 5 completed: 2024-10-02T17:59:49
+5-state-0
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T15:59:41Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <resistance>4.900000000</resistance>
+      </channel>
+    </load>
+    <load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <measurement>
+          <voltage>5.090000000</voltage>
+          <current>0.0</current>
+        </measurement>
+      </channel>
+      <channel>
+        <name>out1</name>
+        <measurement>
+          <voltage>20.402000000</voltage>
+          <current>0.0</current>
+        </measurement>
+      </channel>
+    </load-state>
+  </data>
+</rpc-reply>
+5-state-0-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <resistance>4.900000000</resistance>\n      </channel>\n    </load>\n    <load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <measurement>\n          <voltage>5.090000000</voltage>\n          <current>0.0</current>\n        </measurement>\n      </channel>\n      <channel>\n        <name>out1</name>\n        <measurement>\n          <voltage>20.402000000</voltage>\n          <current>0.0</current>\n        </measurement>\n      </channel>\n    </load-state>\n  </data>'
+5-state-0-load-0.xml - end
+# 4.9 Ohm, 5.09 v, 0.0 l
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T15:59:53Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <resistance>4.850000000</resistance>
+      </channel>
+    </load>
+    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">
+    </nacm>
+  </data>
+</rpc-reply>
+6-config-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <resistance>4.850000000</resistance>\n      </channel>\n    </load>\n    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">\n    </nacm>\n  </data>\n'
+6-config-load-0.xml - end
+Transaction 6 started: 2024-10-02T17:59:53
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <ok/>
+</rpc-reply>
+Transaction 6 completed: 2024-10-02T18:00:02
+6-state-0
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T15:59:53Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <resistance>4.850000000</resistance>
+      </channel>
+    </load>
+    <load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <measurement>
+          <voltage>5.089000000</voltage>
+          <current>0.0</current>
+        </measurement>
+      </channel>
+      <channel>
+        <name>out1</name>
+        <measurement>
+          <voltage>20.402000000</voltage>
+          <current>0.0</current>
+        </measurement>
+      </channel>
+    </load-state>
+  </data>
+</rpc-reply>
+6-state-0-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <resistance>4.850000000</resistance>\n      </channel>\n    </load>\n    <load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <measurement>\n          <voltage>5.089000000</voltage>\n          <current>0.0</current>\n        </measurement>\n      </channel>\n      <channel>\n        <name>out1</name>\n        <measurement>\n          <voltage>20.402000000</voltage>\n          <current>0.0</current>\n        </measurement>\n      </channel>\n    </load-state>\n  </data>'
+6-state-0-load-0.xml - end
+# 4.8500000000000005 Ohm, 5.089 v, 0.0 l
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T16:00:06Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <resistance>4.800000000</resistance>
+      </channel>
+    </load>
+    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">
+    </nacm>
+  </data>
+</rpc-reply>
+7-config-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <resistance>4.800000000</resistance>\n      </channel>\n    </load>\n    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">\n    </nacm>\n  </data>\n'
+7-config-load-0.xml - end
+Transaction 7 started: 2024-10-02T18:00:06
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <ok/>
+</rpc-reply>
+Transaction 7 completed: 2024-10-02T18:00:14
+7-state-0
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T16:00:06Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <resistance>4.800000000</resistance>
+      </channel>
+    </load>
+    <load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <measurement>
+          <voltage>5.090000000</voltage>
+          <current>0.0</current>
+        </measurement>
+      </channel>
+      <channel>
+        <name>out1</name>
+        <measurement>
+          <voltage>20.401000000</voltage>
+          <current>0.0</current>
+        </measurement>
+      </channel>
+    </load-state>
+  </data>
+</rpc-reply>
+7-state-0-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <resistance>4.800000000</resistance>\n      </channel>\n    </load>\n    <load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <measurement>\n          <voltage>5.090000000</voltage>\n          <current>0.0</current>\n        </measurement>\n      </channel>\n      <channel>\n        <name>out1</name>\n        <measurement>\n          <voltage>20.401000000</voltage>\n          <current>0.0</current>\n        </measurement>\n      </channel>\n    </load-state>\n  </data>'
+7-state-0-load-0.xml - end
+# 4.800000000000001 Ohm, 5.09 v, 0.0 l
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T16:00:18Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <resistance>4.750000000</resistance>
+      </channel>
+    </load>
+    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">
+    </nacm>
+  </data>
+</rpc-reply>
+8-config-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <resistance>4.750000000</resistance>\n      </channel>\n    </load>\n    <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">\n    </nacm>\n  </data>\n'
+8-config-load-0.xml - end
+Transaction 8 started: 2024-10-02T18:00:18
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <ok/>
+</rpc-reply>
+Transaction 8 completed: 2024-10-02T18:00:26
+8-state-0
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  last-modified="2024-10-02T16:00:18Z"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <resistance>4.750000000</resistance>
+      </channel>
+    </load>
+    <load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+      <channel>
+        <name>out2</name>
+        <measurement>
+          <voltage>5.090000000</voltage>
+          <current>0.0</current>
+        </measurement>
+      </channel>
+      <channel>
+        <name>out1</name>
+        <measurement>
+          <voltage>20.401000000</voltage>
+          <current>0.0</current>
+        </measurement>
+      </channel>
+    </load-state>
+  </data>
+</rpc-reply>
+8-state-0-load-0.xml - start
+b'<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">\n    <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <resistance>4.750000000</resistance>\n      </channel>\n    </load>\n    <load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">\n      <channel>\n        <name>out2</name>\n        <measurement>\n          <voltage>5.090000000</voltage>\n          <current>0.0</current>\n        </measurement>\n      </channel>\n      <channel>\n        <name>out1</name>\n        <measurement>\n          <voltage>20.401000000</voltage>\n          <current>0.0</current>\n        </measurement>\n      </channel>\n    </load-state>\n  </data>'
+8-state-0-load-0.xml - end
+# 4.750000000000001 Ohm, 5.09 v, 0.0 l

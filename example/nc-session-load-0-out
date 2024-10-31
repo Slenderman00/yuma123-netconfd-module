@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hello xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <capabilities>
+    <capability>urn:ietf:params:netconf:base:1.0</capability>
+    <capability>urn:ietf:params:netconf:base:1.1</capability>
+  </capabilities>
+</hello>]]>]]>
+#300
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc message-id="1"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <get xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+    <filter type="subtree">
+      <modules-state xmlns="urn:ietf:params:xml:ns:yang:ietf-yang-library"/>
+    </filter>
+  </get>
+</rpc>
+##
+
+#392
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc message-id="2"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <get-schema xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring">
+    <identifier>lsi-demo-line-display</identifier>
+    <version>2022-06-12</version>
+    <format
+      xmlns:ncm="urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring">ncm:yang</format>
+  </get-schema>
+</rpc>
+##
+
+#381
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc message-id="3"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <get-schema xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring">
+    <identifier>lsi-lights</identifier>
+    <version>2024-05-13</version>
+    <format
+      xmlns:ncm="urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring">ncm:yang</format>
+  </get-schema>
+</rpc>
+##
+
+#387
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc message-id="4"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <get-schema xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring">
+    <identifier>lsi-thermometers</identifier>
+    <version>2022-07-25</version>
+    <format
+      xmlns:ncm="urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring">ncm:yang</format>
+  </get-schema>
+</rpc>
+##
+
+#510
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc message-id="5"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <edit-config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+    <target>
+      <candidate/>
+    </target>
+    <default-operation>merge</default-operation>
+    <test-option>set</test-option>
+    <config>
+      <load 
+        xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+        nc:operation="delete"
+        xmlns="urn:lsi:params:xml:ns:yang:ivi-load"/>
+    </config>
+  </edit-config>
+</rpc>
+##
+
+#632
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc message-id="6"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <edit-config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+    <target>
+      <candidate/>
+    </target>
+    <default-operation>merge</default-operation>
+    <test-option>set</test-option>
+    <config>
+      <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+        <channel 
+          xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+          nc:operation="replace">
+          <name>out2</name>
+          <resistance>5.000000000</resistance>
+        </channel>
+      </load>
+    </config>
+  </edit-config>
+</rpc>
+##
+
+#632
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc message-id="7"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <edit-config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+    <target>
+      <candidate/>
+    </target>
+    <default-operation>merge</default-operation>
+    <test-option>set</test-option>
+    <config>
+      <load xmlns="urn:lsi:params:xml:ns:yang:ivi-load">
+        <channel 
+          xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+          nc:operation="replace">
+          <name>out2</name>
+          <resistance>5.000000000</resistance>
+        </channel>
+      </load>
+    </config>
+  </edit-config>
+</rpc>
+##
+
+#510
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc message-id="8"
+  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <edit-config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+    <target>
+      <candidate/>
+    </target>
+    <default-operation>merge</default-operation>
+    <test-option>set</test-option>
+    <config>
+      <load 
+        xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+        nc:operation="delete"
+        xmlns="urn:lsi:params:xml:ns:yang:ivi-load"/>
+    </config>
+  </edit-config>
+</rpc>
+##
