@@ -1,25 +1,17 @@
 #!/usr/bin/python3
-import sys
 import vxi11
 
 instr = vxi11.vxi11.Instrument("TCPIP::localhost::gpib,5::INSTR")
 
-try:
-    reply = instr.ask("MEAS:CURR?")
-except:
-    reply = 0
+reply = instr.ask("MEAS:CURR?")
 
 current = float(reply)
 current = format(current, ".9f")
 
-try:
-    reply = instr.ask("MEAS:VOLT?")
-except:
-    reply = 0
+reply = instr.ask("MEAS:VOLT?")
 
 voltage = float(reply)
 voltage = format(voltage, ".9f")
-
 
 print('<load-state xmlns="urn:lsi:params:xml:ns:yang:ivi-load">')
 print(
