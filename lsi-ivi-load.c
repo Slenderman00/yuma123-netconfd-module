@@ -91,7 +91,11 @@ static int update_config(val_value_t* config_cur_val, val_value_t* config_new_va
     val_value_t *channel_val;
     val_value_t *name_val;
     val_value_t *resistance_val=NULL;
+    val_value_t *transient_resistance_val=NULL;
+    val_value_t *transient_frequency=NULL;
     val_value_t *resistance1_val=NULL;
+    val_value_t *transient_resistance1_val=NULL;
+    val_value_t *transient_frequency1_val=NULL;
 
     unsigned int i;
 
@@ -129,15 +133,21 @@ static int update_config(val_value_t* config_cur_val, val_value_t* config_new_va
         for (channel_val = val_get_first_child(load_val);
              channel_val != NULL;
              channel_val = val_get_next_child(channel_val)) {
-            name_val = val_find_child(channel_val,
+             name_val = val_find_child(channel_val,
                                load_MOD,
                                "name");
+
             resistance_val = val_find_child(channel_val,
                                       load_MOD,
                                       "resistance");
 
+            transient_resistance_val = val_find_child(channel_val, load_MOD, "transient-resistance");
+            transient_frequency = val_find_child(channel_val, load_MOD, "transient-frequency");
+
             if(0==strcmp(VAL_STRING(name_val), "out1")) {
-                     resistance1_val = resistance_val;
+                resistance1_val = resistance_val;
+                transient_resistance1_val = transient_resistance_val;
+                transient_frequency1_val = transient_frequency;
             }
         }
     }
@@ -153,6 +163,24 @@ static int update_config(val_value_t* config_cur_val, val_value_t* config_new_va
         free(resistance_str);
     } else {
         sprintf(setcmd_buf+strlen(setcmd_buf), " off 999.99");
+    }
+
+    if(transient_resistance1_val) {
+        char* resistance_str;
+        resistance_str = val_make_sprintf_string(resistance1_val);
+        sprintf(setcmd_buf+strlen(setcmd_buf), " %s", resistance_str);
+        free(resistance_str);
+    } else {
+        sprintf(setcmd_buf+strlen(setcmd_buf), " 0");
+    }
+
+    if(transient_frequency) {
+        char* transient_frequency_str;
+        transient_frequency_str = val_make_sprintf_string(transient_frequency);
+        sprintf(setcmd_buf+strlen(setcmd_buf), " %s", transient_frequency_str);
+        free(transient_frequency_str);
+    } else {
+        sprintf(setcmd_buf+strlen(setcmd_buf), " 0");
     }
 
 
