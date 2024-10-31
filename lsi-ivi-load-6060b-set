@@ -14,14 +14,11 @@ if len(sys.argv) >= 3 and sys.argv[1].upper() != "OFF":
 
 if len(sys.argv) >= 4 and sys.argv[1].upper() != "OFF":
     instr.write(f"TRAN:FREQ  {sys.argv[4]}")
-    print("yeet1")
     if int(sys.argv[3]) > 0:
-        print("yeet3")
         instr.write("TRAN:MODE CONT")
         instr.write("TRAN:DCYC 50")
         instr.write("TRAN ON")
     else:
-        print("yeet4")
         instr.write("TRAN OFF")
 else:
     instr.write("TRAN OFF")
