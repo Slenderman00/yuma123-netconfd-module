@@ -32,6 +32,24 @@ module lsi-ivi-load {
           fraction-digits 9;
         }
       }
+      leaf transient-resistance {
+        mandatory false;
+        description
+          "Specifies the transient resistance of the load.";
+        units "Ohm";
+        type decimal64 {
+          fraction-digits 9;
+        }
+      }
+      leaf transient-frequency {
+        mandatory true;
+        description
+          "Specifies the frequency of transient operations.";
+        units "Hz";
+        type decimal64 {
+          fraction-digits 2;
+        }
+      }
     }
   }
 
