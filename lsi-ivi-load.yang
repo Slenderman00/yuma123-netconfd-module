@@ -42,7 +42,7 @@ module lsi-ivi-load {
         }
       }
       leaf transient-frequency {
-        mandatory true;
+        mandatory false;
         description
           "Specifies the frequency of transient operations.";
         units "Hz";
