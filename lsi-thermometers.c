@@ -58,7 +58,7 @@ float a_temperature = 0.0;
 float read_temp() {
 
     sts3x_measure_single_shot_medium_repeatability(&raw_temp);
-    *a_temperature = signal_temperature(raw_temp);
+    a_temperature = signal_temperature(raw_temp);
 
     return a_temperature;
 }
