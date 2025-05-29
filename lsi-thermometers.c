@@ -39,6 +39,8 @@
 #include "sensirion_i2c_hal.h"
 #include "sts3x_i2c.h"
 
+#define sensirion_hal_sleep_us sensirion_i2c_hal_sleep_usec
+
 int16_t error = NO_ERROR;
 
 int init_sensor() {
