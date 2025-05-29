@@ -39,8 +39,9 @@
 #include "sensirion_i2c_hal.h"
 #include "sts3x_i2c.h"
 
+int16_t error = NO_ERROR;
+
 int init_sensor() {
-    int16_t error = NO_ERROR;
     sensirion_i2c_hal_init();
     sts3x_init(STS30_I2C_ADDR_4A);
 
