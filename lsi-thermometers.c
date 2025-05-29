@@ -52,15 +52,13 @@ int init_sensor() {
     return 0;
 }
 
-float read_temp() {
-    float a_temperature = 0.0;
+uint16_t raw_temp = 0;
+float a_temperature = 0.0;
 
-    error = sts3x_measure_single_shot(REPEATABILITY_MEDIUM, false,
-                                        &a_temperature);
-    if (error != NO_ERROR) {
-        printf("error executing measure_single_shot(): %i\n", error);
-        return 0;
-    }
+float read_temp() {
+
+    sts3x_measure_single_shot_medium_repeatability(&raw_temp);
+    *a_temperature = signal_temperature(raw_temp);
 
     return a_temperature;
 }
