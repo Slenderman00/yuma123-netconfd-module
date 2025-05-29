@@ -94,7 +94,9 @@ static status_t
     float temp = read_temp();
     temp = temp * 100;
 
-    sprintf(buf, "<thermometers xmlns=\"urn:lsi:params:xml:ns:yang:thermometers\"><thermometer><name>th0</name><value>%d</value></thermometer></thermometers>", (int)temp);
+    snprintf(buf, BUFSIZE, "<thermometers xmlns=\"urn:lsi:params:xml:ns:yang:thermometers\">"
+        "<thermometer><name>th0</name><value>%d</value></thermometer>"
+        "</thermometers>", (int)temp);
 
     res = val_set_cplxval_obj(dst_val,
                               vir_val->obj,
@@ -112,7 +114,6 @@ status_t
         const xmlChar *modname,
         const xmlChar *revision)
 {
-    init_sensor();
 
     agt_profile_t *agt_profile;
     status_t res;
@@ -140,6 +141,8 @@ status_t
 
 status_t y_lsi_thermometers_init2(void)
 {
+    init_sensor();
+
     status_t res;
     cfg_template_t* runningcfg;
     val_value_t* thermometers_val;
