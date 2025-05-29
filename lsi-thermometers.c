@@ -48,7 +48,7 @@ int16_t error = NO_ERROR;
 int init_sensor() {
     sensirion_i2c_hal_init();
     sts3x_init(STS30_I2C_ADDR_4A);
-
+    
     sts3x_stop_measurement();
     sensirion_hal_sleep_us(1000);
     sts3x_soft_reset();
@@ -60,25 +60,20 @@ int init_sensor() {
         return error;
     }
     printf("a_status_register: %02x\n", a_status_register);
-    error = sts3x_start_periodic_measurement(REPEATABILITY_MEDIUM,
-                                             MPS_ONE_PER_SECOND);
-    if (error != NO_ERROR) {
-        printf("error executing start_periodic_measurement(): %i\n", error);
-        return error;
-    }
+
+    return 0;
 }
 
-int read_temp(int repetitions) {
+int read_temp() {
     float a_temperature = 0.0;
-    uint16_t repetition = 0;
-    for (repetition = 0; repetition < repetitions; repetition++) {
-        error = sts3x_blocking_read_measurement(&a_temperature);
-        if (error != NO_ERROR) {
-            printf("error executing blocking_read_measurement(): %i\n", error);
-            continue;
-        }
-    }
 
+    error = sts3x_measure_single_shot(REPEATABILITY_MEDIUM, false,
+                                        &a_temperature);
+    if (error != NO_ERROR) {
+        printf("error executing measure_single_shot(): %i\n", error);
+        return 0;
+    }
+    printf("a_temperature: %.2f\n", a_temperature);
     return a_temperature;
 }
 
