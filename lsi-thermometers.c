@@ -64,7 +64,7 @@ int init_sensor() {
     return 0;
 }
 
-int read_temp() {
+float read_temp() {
     float a_temperature = 0.0;
 
     error = sts3x_measure_single_shot(REPEATABILITY_MEDIUM, false,
@@ -73,7 +73,7 @@ int read_temp() {
         printf("error executing measure_single_shot(): %i\n", error);
         return 0;
     }
-    printf("a_temperature: %.2f\n", a_temperature);
+
     return a_temperature;
 }
 
