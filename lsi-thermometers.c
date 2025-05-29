@@ -34,6 +34,50 @@
 #include "val123.h"
 #include "val_set_cplxval_obj.h"
 
+/* Sensirion */
+#include "sensirion_common.h"
+#include "sensirion_i2c_hal.h"
+#include "sts3x_i2c.h"
+
+int init_sensor() {
+    int16_t error = NO_ERROR;
+    sensirion_i2c_hal_init();
+    sts3x_init(STS30_I2C_ADDR_4A);
+
+    sts3x_stop_measurement();
+    sensirion_hal_sleep_us(1000);
+    sts3x_soft_reset();
+    sensirion_hal_sleep_us(100000);
+    uint16_t a_status_register = 0u;
+    error = sts3x_read_status_register(&a_status_register);
+    if (error != NO_ERROR) {
+        printf("error executing read_status_register(): %i\n", error);
+        return error;
+    }
+    printf("a_status_register: %02x\n", a_status_register);
+    error = sts3x_start_periodic_measurement(REPEATABILITY_MEDIUM,
+                                             MPS_ONE_PER_SECOND);
+    if (error != NO_ERROR) {
+        printf("error executing start_periodic_measurement(): %i\n", error);
+        return error;
+    }
+}
+
+int read_temp(int repetitions) {
+    float a_temperature = 0.0;
+    uint16_t repetition = 0;
+    for (repetition = 0; repetition < repetitions; repetition++) {
+        error = sts3x_blocking_read_measurement(&a_temperature);
+        if (error != NO_ERROR) {
+            printf("error executing blocking_read_measurement(): %i\n", error);
+            continue;
+        }
+    }
+
+    return a_temperature;
+}
+
+
 /* module static variables */
 static ncx_module_t *lsi_thermometers_mod;
 static obj_template_t* thermometers_obj;
@@ -59,22 +103,10 @@ static status_t
     char buf[BUFSIZE];
     FILE *fp;
 
-    if ((fp = popen(cmd, "r")) == NULL) {
-        printf("Error opening pipe!\n");
-        assert(0);
-    }
+    int temp = read_temp(10);
+    temp = temp * 100;
 
-    ptr = fgets(buf, BUFSIZE, fp);
-    assert(ptr!=NULL);
-
-    printf("thermometers-get: %s", buf);
-
-    assert(strlen(buf));
-
-    if(pclose(fp))  {
-        printf("Command not found or exited with error status\n");
-        assert(0);
-    }
+    sprintf(buf, "<thermometers xmlns=\"urn:lsi:params:xml:ns:yang:thermometers\"><thermometer><name>th0</name><value>%d</value></thermometer></thermometers>", temp);
 
     res = val_set_cplxval_obj(dst_val,
                               vir_val->obj,
@@ -92,6 +124,8 @@ status_t
         const xmlChar *modname,
         const xmlChar *revision)
 {
+    init_sensor();
+
     agt_profile_t *agt_profile;
     status_t res;
 
