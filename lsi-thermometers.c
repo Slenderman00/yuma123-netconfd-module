@@ -48,18 +48,6 @@ int16_t error = NO_ERROR;
 int init_sensor() {
     sensirion_i2c_hal_init();
     sts3x_init(STS30_I2C_ADDR_4A);
-    
-    sts3x_stop_measurement();
-    sensirion_hal_sleep_us(1000);
-    sts3x_soft_reset();
-    sensirion_hal_sleep_us(100000);
-    uint16_t a_status_register = 0u;
-    error = sts3x_read_status_register(&a_status_register);
-    if (error != NO_ERROR) {
-        printf("error executing read_status_register(): %i\n", error);
-        return error;
-    }
-    printf("a_status_register: %02x\n", a_status_register);
 
     return 0;
 }
@@ -103,10 +91,10 @@ static status_t
     char buf[BUFSIZE];
     FILE *fp;
 
-    int temp = read_temp(10);
+    float temp = read_temp();
     temp = temp * 100;
 
-    sprintf(buf, "<thermometers xmlns=\"urn:lsi:params:xml:ns:yang:thermometers\"><thermometer><name>th0</name><value>%d</value></thermometer></thermometers>", temp);
+    sprintf(buf, "<thermometers xmlns=\"urn:lsi:params:xml:ns:yang:thermometers\"><thermometer><name>th0</name><value>%d</value></thermometer></thermometers>", (int)temp);
 
     res = val_set_cplxval_obj(dst_val,
                               vir_val->obj,
