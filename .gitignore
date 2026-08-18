@@ -1,0 +1,23 @@
+# autotools / libtool build output
+.deps/
+.libs/
+autom4te.cache/
+*.o
+*.lo
+*.la
+*.so*
+Makefile
+Makefile.in
+aclocal.m4
+compile
+config.guess
+config.log
+config.status
+config.sub
+configure
+configure~
+depcomp
+install-sh
+libtool
+ltmain.sh
+missing

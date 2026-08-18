@@ -1,3 +1,12 @@
+yuma123-netconfd-module-ietf-hardware-state-raspberry-pi (1.0) bookworm; urgency=medium
+
+  * Replaced lsi-thermometers with ietf-hardware-state (RFC 8348) module
+  * Temperature from Sensirion STS3x on I2C reported as component 'temperature'
+  * Added Plantower PMS7003 particulate matter sensor on UART (GPIO 15 / /dev/serial0)
+    reported as components 'pm1', 'pm25' and 'pm10'
+
+ -- Joar Heimonen <spam@joar.me>  Tue, 18 Aug 2026 18:30:00 +0200
+
 yuma123-netconfd-module-lsi-thermometers (1.3) bookworm; urgency=medium
 
   * Added pcsensor-temper implementation

@@ -1,9 +1,34 @@
 # Overview
-Thermometer module for netconfd.
+ietf-hardware-state module for netconfd, Raspberry Pi implementation.
+
+Reports the following /hardware components (RFC 8348 ietf-hardware-state):
+
+ * raspberry-pi  - ianahw:container, serial number and model read from the device tree
+ * temperature   - ianahw:sensor, Sensirion STS3x on I2C (/dev/i2c-1, address 0x4a),
+                   celsius, value-scale milli
+ * pm1, pm25, pm10 - ianahw:sensor, Plantower PMS7003 on UART (/dev/serial0),
+                   atmospheric ug/m3 multiplied by 1000, value-scale milli
+
+The sensors are read in-process when /hardware is retrieved. If a sensor can not be
+read its <sensor-data> is reported with <oper-status>unavailable</oper-status>.
+
+# Wiring
+ STS3x:   SDA -> GPIO 2, SCL -> GPIO 3 (i2c1)
+ PMS7003: TX  -> GPIO 15 (RXD, /dev/serial0), 5V, GND
+
+# Raspberry Pi configuration
+/boot/firmware/config.txt:
+ dtparam=i2c_arm=on
+ enable_uart=1
+
+Make sure the serial console is not enabled on /dev/serial0
+(no console=serial0,... in /boot/firmware/cmdline.txt).
+
+The serial device can be overridden with the PMS7003_DEVICE environment variable.
 
 # Dependencies
 Installed netconfd and yangcli
- apt-get install netconfd yangcli lm-sensors bc jq
+ apt-get install netconfd yangcli libyuma-dev
 
 # Installation
  autoreconf -i -f
@@ -13,21 +38,58 @@ Installed netconfd and yangcli
 
 # Testing installation
 
- netconfd --module=lsi-thermometers  --no-startup --superuser=$USER
+ netconfd --module=ietf-hardware-state --no-startup --superuser=$USER
 
 Other terminal:
  yangcli --server=localhost --user=$USER
 
-
-yangcli vladimir@localhost> xget /thermometers
+yangcli pi@localhost> xget /hardware
 ...
-<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-  <data>
-    <thermometers xmlns="urn:lsi:params:xml:ns:yang:thermometers">
-      <thermometer>
-        <name>th0</name>
-        <value>-25100</value>
-      </thermometer>
-    </thermometers>
-  </data>
-</rpc-reply>
+  data {
+    hardware {
+      last-change 2026-08-18T16:30:00Z
+      component raspberry-pi {
+        name raspberry-pi
+        class ianahw:container
+        serial-num 000000008c18491c
+        mfg-name 'Raspberry Pi'
+        model-name 'Raspberry Pi Zero 2 W Rev 1.0'
+      }
+      component temperature {
+        name temperature
+        class ianahw:sensor
+        parent raspberry-pi
+        sensor-data {
+          value 23450
+          value-type celsius
+          value-scale milli
+          value-precision 2
+          oper-status ok
+          value-timestamp 2026-08-18T16:31:02Z
+          value-update-rate 0
+          units-display 'milli degrees'
+        }
+      }
+      component pm1 {
+        name pm1
+        class ianahw:sensor
+        parent raspberry-pi
+        sensor-data {
+          value 3000
+          value-type other
+          value-scale milli
+          value-precision 2
+          oper-status ok
+          value-timestamp 2026-08-18T16:31:02Z
+          value-update-rate 0
+          units-display 'PM1 particles'
+        }
+      }
+      component pm25 {
+        ...
+      }
+      component pm10 {
+        ...
+      }
+    }
+  }

@@ -1,5 +1,0 @@
-#!/bin/bash
-
-value="`sensors -j | jq  '.[].temp1.temp1_input' | grep -v null | head -n1`"
-value_int=`echo "scale=0; $value*100/1" | bc -l`
-echo -n '<thermometers xmlns="urn:lsi:params:xml:ns:yang:thermometers"><thermometer><name>th0</name><value>'${value_int}'</value></thermometer></thermometers>'

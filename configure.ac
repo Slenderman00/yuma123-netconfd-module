@@ -1,4 +1,4 @@
-AC_INIT([yuma123-netconfd-module-lsi-foo], [1.0], [vladimir@lightside-instruments.com])
+AC_INIT([yuma123-netconfd-module-ietf-hardware-state-raspberry-pi], [1.0], [vladimir@lightside-instruments.com])
 
 AC_CANONICAL_SYSTEM
 
@@ -13,8 +13,6 @@ AC_PROG_LIBTOOL
 netconfmoduledir="$libdir/yuma"
 AC_SUBST(netconfmoduledir)
 
-yangdir="$prefix/share/yuma/modules/lsi"
-AC_SUBST(yangdir)
 
 ncx_netconf_includedir="$includedir/yuma/ncx"
 AC_SUBST(ncx_netconf_includedir)
