@@ -53,7 +53,7 @@ yangcli pi@localhost> xget /hardware
         class ianahw:container
         serial-num 000000008c18491c
         mfg-name 'Raspberry Pi'
-        model-name 'Raspberry Pi Zero 2 W Rev 1.0'
+        model-name 'Zero 2 W Rev 1.0'
       }
       component temperature {
         name temperature

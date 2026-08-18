@@ -272,6 +272,11 @@ status_t y_ietf_hardware_state_init2(void)
                    serial_num, sizeof(serial_num), "unknown");
     read_dt_string("/proc/device-tree/model",
                    model_name, sizeof(model_name), "Raspberry Pi");
+    /* the device tree model repeats the manufacturer ("Raspberry Pi Zero 2 W Rev 1.0"),
+       report it as mfg-name "Raspberry Pi" and model-name "Zero 2 W Rev 1.0" */
+    if (strncmp(model_name, "Raspberry Pi ", 13) == 0) {
+        memmove(model_name, model_name + 13, strlen(model_name + 13) + 1);
+    }
 
     runningcfg = cfg_get_config_id(NCX_CFGID_RUNNING);
     if (!runningcfg || !runningcfg->root) {
