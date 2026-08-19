@@ -39,12 +39,10 @@ services:
       - OT_INFRA_IF=${INFRA_IF:-eth0}
       - OT_THREAD_IF=wpan0
       - OT_LOG_LEVEL=5
-    sysctls:
-      - net.ipv6.conf.all.disable_ipv6=0
-      - net.ipv4.conf.all.forwarding=1
-      - net.ipv6.conf.all.forwarding=1
+    # (sysctls can not be set per container in host network mode; the privileged
+    #  OTBR entrypoint enables IPv4/IPv6 forwarding on the host itself)
     volumes:
-      - otbr-data:/var/lib/thread
+      - otbr-data:/data
 
   matter-server:
     image: ghcr.io/home-assistant-libs/python-matter-server:stable
