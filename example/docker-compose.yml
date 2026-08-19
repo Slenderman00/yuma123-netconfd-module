@@ -1,0 +1,67 @@
+# Matter over Thread stack for the ietf-hardware-state-matter netconfd module.
+#
+#   IKEA ALPSTUGA  --Thread-->  ZBT-2 dongle (RCP)  -->  otbr (OpenThread Border Router)
+#                                                         matter-server (python-matter-server)
+#                                                         ietf-hardware-state-matter / netconfd
+#
+# Both containers run in host network mode: the Matter Server talks to the Thread
+# devices through the wpan0 interface created by OTBR and discovers them with mDNS,
+# and the helper script reaches the Matter Server on ws://localhost:5580/ws and
+# the OTBR REST API on http://localhost:8081.
+#
+# Adjust ZBT2_DEVICE / INFRA_IF below (or export them) for your host.
+# Commissioning new Thread devices happens over Bluetooth LE, so the host needs a
+# BLE adapter (the Raspberry Pi has one) and a running bluetoothd/dbus.
+#
+# Start:            docker compose up -d
+# Form a Thread network the first time:
+#                   docker compose exec otbr ot-ctl dataset init new
+#                   docker compose exec otbr ot-ctl dataset commit active
+#                   docker compose exec otbr ot-ctl ifconfig up
+#                   docker compose exec otbr ot-ctl thread start
+# Commission:       ietf-hardware-state-matter commission MT:... MT:...
+
+services:
+  otbr:
+    image: openthread/border-router:latest
+    container_name: otbr
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    devices:
+      - ${ZBT2_DEVICE:-/dev/ttyUSB0}:/dev/ttyUSB0
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      # Home Assistant Connect ZBT-2 RCP: 460800 baud with hardware flow control
+      - OT_RCP_DEVICE=spinel+hdlc+uart:///dev/ttyUSB0?uart-baudrate=460800&uart-flow-control
+      - OT_INFRA_IF=${INFRA_IF:-eth0}
+      - OT_THREAD_IF=wpan0
+      - OT_LOG_LEVEL=5
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.forwarding=1
+      - net.ipv6.conf.all.forwarding=1
+    volumes:
+      - otbr-data:/var/lib/thread
+
+  matter-server:
+    image: ghcr.io/home-assistant-libs/python-matter-server:stable
+    container_name: matter-server
+    restart: unless-stopped
+    network_mode: host
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - matter-data:/data
+      - /run/dbus:/run/dbus:ro
+    command:
+      - --storage-path=/data
+      - --paa-root-cert-dir=/data/credentials
+      - --bluetooth-adapter=0
+      - --log-level=info
+    depends_on:
+      - otbr
+
+volumes:
+  otbr-data:
+  matter-data:

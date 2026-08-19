@@ -1,20 +1,16 @@
-yuma123-netconfd-module-ietf-hardware-state-raspberry-pi (1.0) bookworm; urgency=medium
+yuma123-netconfd-module-ietf-hardware-state-matter (1.0) bookworm; urgency=medium
 
-  * Replaced lsi-thermometers with ietf-hardware-state (RFC 8348) module
-  * Temperature from Sensirion STS3x on I2C reported as component 'temperature'
-  * Added Plantower PMS7003 particulate matter sensor on UART (GPIO 15 / /dev/serial0)
-    reported as components 'pm1', 'pm25' and 'pm10'
+  * Matter over Thread implementation: sensor readings come from the Open Home
+    Foundation Matter Server (python-matter-server) through the Python helper
+    ietf-hardware-state-matter (standard library only, own WebSocket client)
+  * Each Matter node, e.g. IKEA ALPSTUGA, is a container component with
+    temperature, humidity, co2, pm25 and air-quality sensor components;
+    offline nodes are reported with oper-status unavailable
+  * Helper subcommands nodes, commission (Thread dataset from OTBR) and thread-dataset
+  * MATTER_NODE_ID selects one node for one netconfd instance per device
+  * example/docker-compose.yml for OTBR (ZBT-2) and Matter Server,
+    test/mock-matter-server for testing without hardware
+  * Removed the STS3x/PMS7003 I2C/UART code
 
- -- Joar Heimonen <spam@joar.me>  Tue, 18 Aug 2026 18:30:00 +0200
+ -- Joar Heimonen <spam@joar.me>  Wed, 19 Aug 2026 12:30:00 +0200
 
-yuma123-netconfd-module-lsi-thermometers (1.3) bookworm; urgency=medium
-
-  * Added pcsensor-temper implementation
-
- -- Vladimir Vassilev <vladimir@lightside-instruments.com>  Fri, 16 Aug 2024 00:09:09 +0200
-
-yuma123-netconfd-module-lsi-thermometers (1.2) bookworm; urgency=medium
-
-  * Improved README and model description statements
-
- -- Vladimir Vassilev <vladimir@lightside-instruments.com>  Sat, 10 Aug 2024 21:10:23 +0200
