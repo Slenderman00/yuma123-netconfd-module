@@ -340,10 +340,10 @@ def node_xml(node, timestamp):
            leaf("description", desc),
            leaf("hardware-rev", basic(node, BASIC_HARDWARE_VERSION_STRING)),
            leaf("software-rev", basic(node, BASIC_SOFTWARE_VERSION_STRING)),
-           leaf("serial-num", basic(node, BASIC_SERIAL_NUMBER)),
+           # SerialNumber is optional in Matter, fall back to the UniqueID
+           leaf("serial-num", basic(node, BASIC_SERIAL_NUMBER) or basic(node, BASIC_UNIQUE_ID)),
            leaf("mfg-name", basic(node, BASIC_VENDOR_NAME)),
            leaf("model-name", basic(node, BASIC_PRODUCT_NAME)),
-           leaf("uuid", basic(node, BASIC_UNIQUE_ID)),
            "</component>"]
 
     def suffix(base, eps, ep):
