@@ -92,11 +92,14 @@ over BLE, keep the sensor within a few meters of the host during pairing:
 
  ietf-hardware-state-matter nodes
  Matter Server ws://localhost:5580/ws: fabric 1, sdk 2026.1.0, thread credentials set: True, bluetooth: True
- node 1    online     IKEA of Sweden ALPSTUGA  serial=... component=alpstuga-1 clusters=0x005B,0x0402,0x0405,0x040D,0x042A
- node 2    online     IKEA of Sweden ALPSTUGA  serial=... component=alpstuga-2 clusters=0x005B,0x0402,0x0405,0x040D,0x042A
+ node 1    online     IKEA of Sweden ALPSTUGA air quality monitor  serial=? component=alpstuga-1 clusters=0x005B,0x0402,0x0405,0x040D,0x042A
+ node 2    online     IKEA of Sweden ALPSTUGA air quality monitor  serial=? component=alpstuga-2 clusters=0x005B,0x0402,0x0405,0x040D,0x042A
 
 The devices stay commissioned in the Matter Server storage, after that the
 module picks them up automatically (every node with a measurement cluster).
+ALPSTUGA (hw P2.0, sw 1.0.15) exposes TemperatureMeasurement, RelativeHumidity,
+CO2 (ppm), PM2.5 (ug/m3) and AirQuality; it has no SerialNumber so the Matter
+UniqueID is reported as serial-num.
 
 # Configuration (environment of netconfd / the helper)
  MATTER_SERVER_URL        ws://localhost:5580/ws   Matter Server WebSocket URL
@@ -122,18 +125,18 @@ yangcli pi@localhost> xget /hardware
         name alpstuga-1
         class ianahw:container
         description 'Matter node 1'
-        hardware-rev 1.0
-        software-rev 1.0.25
-        serial-num ...
+        hardware-rev P2.0
+        software-rev 1.0.15
+        serial-num 08a3987c8e77da4fc0e521a70a6a19d0
         mfg-name 'IKEA of Sweden'
-        model-name ALPSTUGA
+        model-name 'ALPSTUGA air quality monitor'
       }
       component alpstuga-1-temperature {
         name alpstuga-1-temperature
         class ianahw:sensor
         parent alpstuga-1
         sensor-data {
-          value 23450
+          value 23070
           value-type celsius
           value-scale milli
           value-precision 2

@@ -35,6 +35,7 @@ Environment:
 """
 
 import base64
+import datetime
 import json
 import os
 import socket
@@ -409,11 +410,19 @@ def last_change_of(nodes):
     stamps = [n.get("date_commissioned") for n in nodes if n.get("date_commissioned")]
     if not stamps:
         return timestamp_now()
-    s = max(stamps)
-    # the server sends ISO 8601; normalise to the YANG date-and-time format
-    if s.endswith("+00:00"):
-        s = s[:-6] + "Z"
-    return s
+    return yang_datetime(max(stamps))
+
+
+def yang_datetime(s):
+    """Normalise an ISO 8601 string from the server (may carry microseconds and
+    no timezone; naive times are UTC) to the YANG date-and-time format."""
+    try:
+        dt = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except ValueError:
+        return timestamp_now()
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return dt.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # ---------------------------------------------------------------------------
