@@ -49,6 +49,23 @@ OTBR and Matter Server, see example/docker-compose.yml:
  cd example
  ZBT2_DEVICE=/dev/ttyACM0 INFRA_IF=eth0 docker compose up -d
 
+# ZBT-2 firmware
+The Home Assistant Connect ZBT-2 ships with Zigbee (EmberZNet/EZSP) firmware.
+For Thread it must run the OpenThread RCP firmware from the Nabu Casa
+silabs-firmware-builder releases (otherwise otbr-agent fails with
+"Init() at spinel_driver.cpp: Failure"):
+
+ python3 -m venv /tmp/usf && /tmp/usf/bin/pip install universal-silabs-flasher
+ /tmp/usf/bin/universal-silabs-flasher --device /dev/ttyACM0 probe
+   ... Detected ApplicationType.EZSP ...            -> Zigbee firmware, flash:
+ curl -LO https://github.com/NabuCasa/silabs-firmware-builder/releases/download/v2026.02.23/zbt2_openthread_rcp_2.7.2.0_GitHub-fb0446f53_gsdk_2025.6.2.gbl
+ /tmp/usf/bin/universal-silabs-flasher --device /dev/ttyACM0 flash --firmware zbt2_openthread_rcp_2.7.2.0_GitHub-fb0446f53_gsdk_2025.6.2.gbl
+ /tmp/usf/bin/universal-silabs-flasher --device /dev/ttyACM0 probe
+   ... Detected ApplicationType.SPINEL, version 'SL-OPENTHREAD/2.7.2.0...' at 460800 baudrate
+
+(The same release contains zbt2_zigbee_ncp_*.gbl to flash back.) Stop the
+otbr container while flashing.
+
 # Installation
  autoreconf -i -f
  ./configure CFLAGS="-g -O0"  CXXFLAGS="-g -O0" --prefix=/usr
@@ -60,12 +77,16 @@ OTBR and Matter Server, see example/docker-compose.yml:
  docker compose exec otbr ot-ctl dataset commit active
  docker compose exec otbr ot-ctl ifconfig up
  docker compose exec otbr ot-ctl thread start
+ docker compose exec otbr ot-ctl state        # -> leader after a few seconds
 
 # Commissioning the sensors (once)
 Use the Matter pairing code of each ALPSTUGA (the MT:... QR payload or the
-11/21 digit manual code printed on the device/manual). New Thread devices are
-commissioned over Bluetooth LE, the helper hands the Thread network credentials
-(fetched from the OTBR REST API) to the Matter Server first:
+11/21 digit manual code printed on the device/manual). Power the sensor up; a
+new device advertises for commissioning over Bluetooth LE. If it was paired
+before (DIRIGERA, Apple Home, ...) either remove it there or factory reset it
+(see the ALPSTUGA manual). The helper hands the Thread network credentials
+(fetched from the OTBR REST API) to the Matter Server and then commissions
+over BLE, keep the sensor within a few meters of the host during pairing:
 
  ietf-hardware-state-matter commission MT:Y.K9042C00KA0648G00 MT:Y.K9042C00KA0648G01
 
