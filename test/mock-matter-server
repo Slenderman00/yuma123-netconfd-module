@@ -1,0 +1,178 @@
+#!/usr/bin/python3
+"""
+mock-matter-server - a tiny stand-in for the Open Home Foundation Matter Server
+WebSocket API, for testing ietf-hardware-state-matter without any hardware.
+
+Serves two fake IKEA ALPSTUGA nodes (node 1 online, node 2 offline) and
+understands the commands get_nodes, get_node, set_thread_dataset,
+commission_with_code, read_attribute and start_listening.
+
+Usage: test/mock-matter-server [port]      (default 5580, path is ignored)
+
+Python standard library only.
+"""
+
+import base64
+import hashlib
+import json
+import socket
+import struct
+import sys
+import threading
+
+GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
+# ALPSTUGA-like node: BasicInformation on endpoint 0, sensors on endpoint 1
+def alpstuga(node_id, available, temp, rh, co2, pm25, serial):
+    return {
+        "node_id": node_id,
+        "date_commissioned": "2026-08-19T10:00:0%dZ" % node_id,
+        "last_interview": "2026-08-19T10:00:0%dZ" % node_id,
+        "interview_version": 6,
+        "available": available,
+        "is_bridge": False,
+        "attributes": {
+            "0/40/1": "IKEA of Sweden",
+            "0/40/2": 4476,
+            "0/40/3": "ALPSTUGA",
+            "0/40/4": 1234,
+            "0/40/5": "",
+            "0/40/8": "1.0",
+            "0/40/10": "1.0.25",
+            "0/40/15": serial,
+            "0/40/18": "%032x" % (0x1234 + node_id),
+            "1/1026/0": temp,       # TemperatureMeasurement MeasuredValue, 0.01 C
+            "1/1029/0": rh,         # RelativeHumidityMeasurement, 0.01 %
+            "1/1037/0": co2,        # CarbonDioxideConcentrationMeasurement, float
+            "1/1037/8": 0,          # MeasurementUnit ppm
+            "1/1066/0": pm25,       # Pm25ConcentrationMeasurement, float
+            "1/1066/8": 4,          # MeasurementUnit ug/m3
+            "1/91/0": 1,            # AirQuality: good
+        },
+        "attribute_subscriptions": [],
+    }
+
+NODES = {
+    1: alpstuga(1, True, 2345, 4512, 612.0, 3.5, "ALP0001"),
+    2: alpstuga(2, False, 2101, 5002, 450.0, 1.0, "ALP0002"),
+}
+STATE = {"thread_credentials_set": False, "next_node_id": 3}
+
+
+def server_info():
+    return {"fabric_id": 1, "compressed_fabric_id": 1234567890,
+            "schema_version": 11, "min_supported_schema_version": 1,
+            "sdk_version": "2026.1.0", "wifi_credentials_set": False,
+            "thread_credentials_set": STATE["thread_credentials_set"],
+            "bluetooth_enabled": True}
+
+
+def handle_command(msg):
+    cmd, args, mid = msg.get("command"), msg.get("args") or {}, msg.get("message_id")
+    if cmd in ("get_nodes", "start_listening"):
+        return {"message_id": mid, "result": list(NODES.values())}
+    if cmd == "get_node":
+        return {"message_id": mid, "result": NODES[args["node_id"]]}
+    if cmd == "set_thread_dataset":
+        STATE["thread_credentials_set"] = True
+        return {"message_id": mid, "result": None}
+    if cmd == "commission_with_code":
+        nid = STATE["next_node_id"]
+        STATE["next_node_id"] += 1
+        NODES[nid] = alpstuga(nid, True, 2200, 4000, 500.0, 2.0, "ALP%04d" % nid)
+        return {"message_id": mid, "result": NODES[nid]}
+    if cmd == "read_attribute":
+        node = NODES[args["node_id"]]
+        path = args["attribute_path"]
+        return {"message_id": mid, "result": {path: node["attributes"].get(path)}}
+    return {"message_id": mid, "error_code": 9, "details": "unknown command %s" % cmd}
+
+
+def ws_send(conn, text):
+    payload = text.encode()
+    n = len(payload)
+    if n < 126:
+        hdr = bytes([0x81, n])
+    elif n < 65536:
+        hdr = bytes([0x81, 126]) + struct.pack("!H", n)
+    else:
+        hdr = bytes([0x81, 127]) + struct.pack("!Q", n)
+    conn.sendall(hdr + payload)
+
+
+def ws_recv(conn, buf):
+    def read(n):
+        while len(buf[0]) < n:
+            chunk = conn.recv(65536)
+            if not chunk:
+                raise ConnectionError
+            buf[0] += chunk
+        data, buf[0] = buf[0][:n], buf[0][n:]
+        return data
+    b0, b1 = read(2)
+    opcode, n = b0 & 0x0F, b1 & 0x7F
+    if n == 126:
+        n = struct.unpack("!H", read(2))[0]
+    elif n == 127:
+        n = struct.unpack("!Q", read(8))[0]
+    mask = read(4) if b1 & 0x80 else None
+    payload = read(n)
+    if mask:
+        payload = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+    return opcode, payload
+
+
+def client(conn):
+    try:
+        req = b""
+        while b"\r\n\r\n" not in req:
+            chunk = conn.recv(4096)
+            if not chunk:
+                return
+            req += chunk
+        head, rest = req.split(b"\r\n\r\n", 1)
+        key = None
+        for line in head.decode().split("\r\n"):
+            if line.lower().startswith("sec-websocket-key:"):
+                key = line.split(":", 1)[1].strip()
+        accept = base64.b64encode(hashlib.sha1((key + GUID).encode()).digest()).decode()
+        conn.sendall(("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n"
+                      "Connection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n" % accept).encode())
+        ws_send(conn, json.dumps(server_info()))
+        buf = [rest]
+        while True:
+            opcode, payload = ws_recv(conn, buf)
+            if opcode == 0x8:
+                return
+            if opcode == 0x9:
+                conn.sendall(bytes([0x8A, len(payload)]) + payload)
+                continue
+            if opcode != 0x1:
+                continue
+            msg = json.loads(payload.decode())
+            print("<-", msg.get("command"), msg.get("args") or "")
+            ws_send(conn, json.dumps(handle_command(msg)))
+    except (ConnectionError, OSError):
+        pass
+    finally:
+        conn.close()
+
+
+def main():
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 5580
+    srv = socket.socket(socket.AF_INET6 if socket.has_ipv6 else socket.AF_INET)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    if srv.family == socket.AF_INET6:
+        srv.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        srv.bind(("::", port))
+    else:
+        srv.bind(("", port))
+    srv.listen(5)
+    print("mock Matter Server listening on port %d (ws://localhost:%d/ws)" % (port, port))
+    while True:
+        conn, _ = srv.accept()
+        threading.Thread(target=client, args=(conn,), daemon=True).start()
+
+
+if __name__ == "__main__":
+    main()
