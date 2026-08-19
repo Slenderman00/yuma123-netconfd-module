@@ -1,4 +1,4 @@
-AC_INIT([yuma123-netconfd-module-ietf-hardware-state-raspberry-pi], [1.0], [vladimir@lightside-instruments.com])
+AC_INIT([yuma123-netconfd-module-ietf-hardware-state-2-raspberry-pi], [1.1], [vladimir@lightside-instruments.com])
 
 AC_CANONICAL_SYSTEM
 

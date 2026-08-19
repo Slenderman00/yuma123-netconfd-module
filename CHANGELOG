@@ -1,3 +1,10 @@
+yuma123-netconfd-module-ietf-hardware-state-2-raspberry-pi (1.1) bookworm; urgency=medium
+
+  * Renamed module to ietf-hardware-state-2 to not collide with the other
+    ietf-hardware-state module on the deployment server
+
+ -- Joar Heimonen <spam@joar.me>  Wed, 19 Aug 2026 12:20:00 +0200
+
 yuma123-netconfd-module-ietf-hardware-state-raspberry-pi (1.0) bookworm; urgency=medium
 
   * Replaced lsi-thermometers with ietf-hardware-state (RFC 8348) module

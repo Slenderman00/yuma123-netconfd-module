@@ -1,5 +1,7 @@
 # Overview
-ietf-hardware-state module for netconfd, Raspberry Pi implementation.
+ietf-hardware-state-2 module for netconfd, Raspberry Pi implementation of the
+ietf-hardware-state YANG module (named with a -2 suffix so it does not collide with
+the other ietf-hardware-state module installed on the server).
 
 Reports the following /hardware components (RFC 8348 ietf-hardware-state):
 
@@ -38,7 +40,7 @@ Installed netconfd and yangcli
 
 # Testing installation
 
- netconfd --module=ietf-hardware-state --no-startup --superuser=$USER
+ netconfd --module=ietf-hardware-state-2 --no-startup --superuser=$USER
 
 Other terminal:
  yangcli --server=localhost --user=$USER

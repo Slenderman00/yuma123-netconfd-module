@@ -1,5 +1,5 @@
 /*
-    module ietf-hardware-state
+    module ietf-hardware-state-2 (SIL for the ietf-hardware-state YANG module)
 
     Raspberry Pi implementation reporting:
       - temperature from a Sensirion STS3x on I2C (/dev/i2c-1, address 0x4a)
@@ -227,10 +227,10 @@ static status_t
     return res;
 }
 
-/* The 3 mandatory callback functions: y_ietf_hardware_state_init, y_ietf_hardware_state_init2, y_ietf_hardware_state_cleanup */
+/* The 3 mandatory callback functions: y_ietf_hardware_state_2_init, y_ietf_hardware_state_2_init2, y_ietf_hardware_state_2_cleanup */
 
 status_t
-    y_ietf_hardware_state_init (
+    y_ietf_hardware_state_2_init (
         const xmlChar *modname,
         const xmlChar *revision)
 {
@@ -258,7 +258,7 @@ status_t
     return res;
 }
 
-status_t y_ietf_hardware_state_init2(void)
+status_t y_ietf_hardware_state_2_init2(void)
 {
     status_t res;
     cfg_template_t* runningcfg;
@@ -296,7 +296,7 @@ status_t y_ietf_hardware_state_init2(void)
     return res;
 }
 
-void y_ietf_hardware_state_cleanup (void)
+void y_ietf_hardware_state_2_cleanup (void)
 {
     sensirion_i2c_hal_free();
 }
