@@ -150,7 +150,7 @@ def client(conn):
             if opcode != 0x1:
                 continue
             msg = json.loads(payload.decode())
-            print("<-", msg.get("command"), msg.get("args") or "")
+            print("<-", msg.get("command"), msg.get("args") or "", flush=True)
             ws_send(conn, json.dumps(handle_command(msg)))
     except (ConnectionError, OSError):
         pass
@@ -168,7 +168,7 @@ def main():
     else:
         srv.bind(("", port))
     srv.listen(5)
-    print("mock Matter Server listening on port %d (ws://localhost:%d/ws)" % (port, port))
+    print("mock Matter Server listening on port %d (ws://localhost:%d/ws)" % (port, port), flush=True)
     while True:
         conn, _ = srv.accept()
         threading.Thread(target=client, args=(conn,), daemon=True).start()
