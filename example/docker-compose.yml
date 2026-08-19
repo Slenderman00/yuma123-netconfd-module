@@ -9,7 +9,8 @@
 # and the helper script reaches the Matter Server on ws://localhost:5580/ws and
 # the OTBR REST API on http://localhost:8081.
 #
-# Adjust ZBT2_DEVICE / INFRA_IF below (or export them) for your host.
+# Adjust ZBT2_DEVICE / INFRA_IF below (or export them) for your host. The ZBT-2
+# must run the Thread (OpenThread RCP) firmware, not the Zigbee firmware.
 # Commissioning new Thread devices happens over Bluetooth LE, so the host needs a
 # BLE adapter (the Raspberry Pi has one) and a running bluetoothd/dbus.
 #
@@ -29,11 +30,12 @@ services:
     network_mode: host
     privileged: true
     devices:
-      - ${ZBT2_DEVICE:-/dev/ttyUSB0}:/dev/ttyUSB0
+      # the ZBT-2 enumerates as /dev/serial/by-id/usb-Nabu_Casa_ZBT-2_*-if00 (/dev/ttyACM0)
+      - ${ZBT2_DEVICE:-/dev/ttyACM0}:/dev/ttyACM0
       - /dev/net/tun:/dev/net/tun
     environment:
-      # Home Assistant Connect ZBT-2 RCP: 460800 baud with hardware flow control
-      - OT_RCP_DEVICE=spinel+hdlc+uart:///dev/ttyUSB0?uart-baudrate=460800&uart-flow-control
+      # Home Assistant Connect ZBT-2 with the Thread (RCP) firmware: 460800 baud
+      - OT_RCP_DEVICE=spinel+hdlc+uart:///dev/ttyACM0?uart-baudrate=460800
       - OT_INFRA_IF=${INFRA_IF:-eth0}
       - OT_THREAD_IF=wpan0
       - OT_LOG_LEVEL=5

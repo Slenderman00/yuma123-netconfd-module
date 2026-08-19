@@ -47,7 +47,7 @@ python3 (standard library only)
 
 OTBR and Matter Server, see example/docker-compose.yml:
  cd example
- ZBT2_DEVICE=/dev/ttyUSB0 INFRA_IF=eth0 docker compose up -d
+ ZBT2_DEVICE=/dev/ttyACM0 INFRA_IF=eth0 docker compose up -d
 
 # Installation
  autoreconf -i -f
