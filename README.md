@@ -209,13 +209,18 @@ yangcli pi@localhost> xget /hardware
 
 ## One netconfd instance per device
 
-By default one netconfd reports all sensors. To expose each ALPSTUGA as its own
-NETCONF server set `MATTER_NODE_ID` and start one instance per device on different
-ports (as with the other lsi modules):
+By default one netconfd reports all sensors with `<product>-<node-id>-` prefixed
+component names. To expose each ALPSTUGA as its own NETCONF server set
+`MATTER_NODE_ID` and start one instance per device on different ports (as with
+the other lsi modules). In this mode the components get the bare names used by
+the other ietf-hardware-state implementations — `alpstuga` (container),
+`temperature`, `humidity`, `co2`, `pm25`, `air-quality` (and `pm1`, `pm10`,
+`voc`, ... if the device has them) — so dashboards keyed on
+`<node-id>.<component-name>` understand them:
 
 ```sh
-MATTER_NODE_ID=1 netconfd --module=ietf-hardware-state --no-startup --superuser=$USER
-MATTER_NODE_ID=2 netconfd --module=ietf-hardware-state --no-startup \
+MATTER_NODE_ID=2 netconfd --module=ietf-hardware-state --no-startup --superuser=$USER
+MATTER_NODE_ID=3 netconfd --module=ietf-hardware-state --no-startup \
    --ncxserver-sockname=/tmp/ncxserver-10830.sock --port=10830 --superuser=$USER
 ```
 

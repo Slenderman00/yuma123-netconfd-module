@@ -26,7 +26,8 @@ is 'get'.
 
 Environment:
   MATTER_SERVER_URL       ws://localhost:5580/ws   Matter Server WebSocket URL
-  MATTER_NODE_ID          (unset)                  only report this Matter node id;
+  MATTER_NODE_ID          (unset)                  only report this Matter node id, with bare
+                                                   component names (temperature, co2, ...);
                                                    use one netconfd instance per device
   MATTER_TIMEOUT          5                        seconds, WebSocket request timeout
   OTBR_REST_URL           http://localhost:8081    OTBR REST API, used to fetch the
@@ -103,7 +104,7 @@ CONCENTRATION_CLUSTERS = {
     CL_PM25: ("pm25", "PM2.5"),
     CL_PM10: ("pm10", "PM10"),
     CL_FORMALDEHYDE: ("formaldehyde", "CH2O"),
-    CL_TVOC: ("tvoc", "TVOC"),
+    CL_TVOC: ("voc", "VOC"),
     CL_RADON: ("radon", "Radon"),
 }
 
@@ -282,11 +283,20 @@ def basic(node, attribute, default=""):
     return default if v is None else str(v)
 
 
+def single_device():
+    """One netconfd instance per device (MATTER_NODE_ID set): components get the
+    bare names (alpstuga, temperature, humidity, co2, pm25, ...) like the other
+    ietf-hardware-state implementations (e.g. airthings), so that dashboards
+    keyed on <node-id>.<component-name> understand them. Without MATTER_NODE_ID
+    all devices share one tree and the names are prefixed <product>-<node-id>-."""
+    return bool(os.environ.get("MATTER_NODE_ID"))
+
+
 def component_name(node):
     product = basic(node, BASIC_PRODUCT_NAME)
     base = "".join(c if c.isalnum() else "-" for c in product.split()[0].lower()) if product else ""
     base = base.strip("-") or "matter-node"
-    return "%s-%d" % (base, node["node_id"])
+    return base if single_device() else "%s-%d" % (base, node["node_id"])
 
 
 def select_nodes(nodes):
@@ -349,7 +359,9 @@ def node_xml(node, timestamp):
 
     def suffix(base, eps, ep):
         # append the endpoint id when the same cluster appears on several endpoints
-        return "%s-%s" % (name, base) if len(eps) == 1 else "%s-%s-ep%d" % (name, base, ep)
+        if len(eps) > 1:
+            base = "%s-ep%d" % (base, ep)
+        return base if single_device() else "%s-%s" % (name, base)
 
     # Temperature: 0.01 degC -> milli degC
     eps = endpoints_with_cluster(node, CL_TEMPERATURE)
