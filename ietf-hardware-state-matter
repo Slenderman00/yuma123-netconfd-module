@@ -30,6 +30,13 @@ Environment:
                                                    component names (temperature, co2, ...);
                                                    use one netconfd instance per device
   MATTER_TIMEOUT          5                        seconds, WebSocket request timeout
+  MATTER_WARMUP           300                      seconds a node must be continuously online
+                                                   before its readings are trusted; right after
+                                                   power-on the first measurements (notably CO2:
+                                                   0 ppm, then a large spike) are invalid and the
+                                                   sensors are reported unavailable. 0 disables.
+  MATTER_STATE_FILE       /tmp/ietf-hardware-state-matter.state[-<node id>].json
+                                                   where the warmup state is kept
   OTBR_REST_URL           http://localhost:8081    OTBR REST API, used to fetch the
                                                    active Thread dataset when commissioning
   THREAD_DATASET          (unset)                  hex TLV dataset, overrides OTBR_REST_URL
@@ -311,6 +318,68 @@ def timestamp_now():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+WARMUP = float(os.environ.get("MATTER_WARMUP", "300"))
+
+
+def state_file():
+    path = os.environ.get("MATTER_STATE_FILE")
+    if path:
+        return path
+    node_id = os.environ.get("MATTER_NODE_ID")
+    return "/tmp/ietf-hardware-state-matter.state%s.json" % (
+        "-" + node_id if node_id else "")
+
+
+def node_rebooting(node):
+    """A CO2 MeasuredValue of 0 ppm means the device just (re)booted: the
+    ALPSTUGA reports 0 and then a large spike for the first minutes after
+    power-on, even when the Matter Server never noticed it going offline."""
+    for ep in endpoints_with_cluster(node, CL_CO2):
+        v = attr(node, ep, CL_CO2, ATTR_MEASURED_VALUE)
+        if v is not None and float(v) == 0.0:
+            return True
+    return False
+
+
+def apply_warmup(nodes):
+    """Set node["_warming"] on nodes that have not been continuously online for
+    MATTER_WARMUP seconds. Their sensor readings (all of them, not only CO2) are
+    untrustworthy until the device has warmed up and are reported with
+    oper-status unavailable. Availability alone misses sub-minute power cycles,
+    so a CO2 reading of 0 also restarts the warmup."""
+    if WARMUP <= 0:
+        return
+    path = state_file()
+    now = time.time()
+    try:
+        with open(path) as f:
+            state = json.load(f)
+        if not isinstance(state, dict):
+            state = {}
+    except (OSError, ValueError):
+        state = {}
+    for node in nodes:
+        key = str(node["node_id"])
+        if not node.get("available"):
+            state.pop(key, None)
+            continue
+        since = state.get(key)
+        if not isinstance(since, (int, float)) or since > now or node_rebooting(node):
+            since = now
+        state[key] = since
+        node["_warming"] = (now - since) < WARMUP
+    tmp = "%s.%d" % (path, os.getpid())
+    try:
+        with open(tmp, "w") as f:
+            json.dump(state, f)
+        os.replace(tmp, path)
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+
 # ---------------------------------------------------------------------------
 # XML generation
 # ---------------------------------------------------------------------------
@@ -340,13 +409,16 @@ def sensor_xml(name, parent, available, value, value_type, value_scale,
 
 def node_xml(node, timestamp):
     name = component_name(node)
-    available = bool(node.get("available"))
+    warming = bool(node.get("_warming"))
+    available = bool(node.get("available")) and not warming
     label = basic(node, BASIC_NODE_LABEL)
     desc = "Matter node %d" % node["node_id"]
     if label:
         desc += " (%s)" % label
-    if not available:
+    if not node.get("available"):
         desc += ", offline"
+    elif warming:
+        desc += ", warming up"
     out = ["<component>", leaf("name", name), "<class>ianahw:container</class>",
            leaf("description", desc),
            leaf("hardware-rev", basic(node, BASIC_HARDWARE_VERSION_STRING)),
@@ -448,6 +520,7 @@ def cmd_get(argv):
             nodes = select_nodes(server.get_nodes())
         finally:
             server.close()
+        apply_warmup(nodes)
     except (OSError, ValueError, MatterServerError) as e:
         # the netconfd module expects <hardware> on stdout in all cases
         sys.stderr.write("ietf-hardware-state-matter: %s: %s\n" % (MATTER_SERVER_URL, e))

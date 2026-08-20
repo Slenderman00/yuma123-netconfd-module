@@ -139,12 +139,26 @@ Environment of netconfd / the helper:
 | `MATTER_SERVER_URL`       | `ws://localhost:5580/ws`  | Matter Server WebSocket URL                            |
 | `MATTER_NODE_ID`          | *(unset)*                 | report only this node, see [one instance per device](#one-netconfd-instance-per-device) |
 | `MATTER_TIMEOUT`          | `5`                       | seconds, WebSocket request timeout                     |
+| `MATTER_WARMUP`           | `300`                     | seconds a node must be online before readings are trusted, see [power-on transients](#power-on-transients); `0` disables |
+| `MATTER_STATE_FILE`       | `/tmp/...state[-<id>].json` | where the warmup state is kept                       |
 | `OTBR_REST_URL`           | `http://localhost:8081`   | used by `commission` to fetch the Thread dataset       |
 | `THREAD_DATASET`          | *(unset)*                 | hex dataset, overrides `OTBR_REST_URL`                 |
 | `IETF_HARDWARE_STATE_GET` | `ietf-hardware-state-get` | helper command run by the module                       |
 
 Helper subcommands: `get` (default, used by netconfd), `nodes`, `commission <code>...`,
 `thread-dataset [<hex>]`, `--help`.
+
+## Power-on transients
+
+For the first minutes after (re)gaining power the ALPSTUGA reports invalid
+measurements: CO2 comes up as 0 ppm and then spikes (observed: 854 ppm for a
+~420 ppm room), temperature and humidity are off as well, and quick power
+cycles are not always noticed by the Matter Server. The helper therefore
+reports all sensors of a node with `<oper-status>unavailable</oper-status>`
+until the node has been continuously online for `MATTER_WARMUP` (default 300)
+seconds; a CO2 reading of exactly 0 ppm is taken as proof of a reboot and
+restarts the warmup. The state is kept in `MATTER_STATE_FILE` under `/tmp`,
+so a host reboot also restarts the warmup.
 
 ## Testing installation
 
