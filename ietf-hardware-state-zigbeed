@@ -112,9 +112,10 @@ class State:
         self._dirty = True
         return entry
 
-    def update(self, dev, prop, value):
+    def update(self, dev, prop, value, when=None):
         entry = self.device(dev)
-        entry["properties"][prop] = {"value": value, "time": time.time()}
+        entry["properties"][prop] = {"value": value,
+                                     "time": when if when is not None else time.time()}
         LOG.info("%s (%s %s): %s = %s", dev.ieee, entry["manufacturer"],
                  entry["model"], prop, value)
 
@@ -159,10 +160,15 @@ def poll_attributes(app, state):
                         value = convert(raw)
                     except (TypeError, ValueError):
                         continue
+                    # timestamp the reading with when the device was last heard
+                    # from, not "now" (the cached value would otherwise look fresh
+                    # forever) and not the last value change (an alive sensor
+                    # reporting a steady value would look increasingly stale).
+                    seen = to_epoch(getattr(dev, "last_seen", None))
                     entry = state.devices.get(str(dev.ieee))
-                    prev = (entry or {}).get("properties", {}).get(prop, {}).get("value")
-                    if prev != value:
-                        state.update(dev, prop, value)
+                    prior = (entry or {}).get("properties", {}).get(prop, {})
+                    if prior.get("value") != value or seen - prior.get("time", 0) >= 5:
+                        state.update(dev, prop, value, when=seen)
 
 
 class ClusterListener:
