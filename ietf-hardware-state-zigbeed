@@ -50,6 +50,19 @@ STATE_FILE = os.path.join(STATE_DIR, "state.json")
 CTL_FILE = os.path.join(STATE_DIR, "permit-join")
 DB_FILE = os.path.join(STATE_DIR, "zigbee.db")
 
+
+def to_epoch(seen):
+    """device.last_seen is a float epoch in some zigpy/bellows versions and a
+    datetime in others; normalise to a float epoch (now if unset)."""
+    if seen is None:
+        return time.time()
+    if hasattr(seen, "timestamp"):
+        return seen.timestamp()
+    try:
+        return float(seen)
+    except (TypeError, ValueError):
+        return time.time()
+
 # (cluster id, attribute id) -> (property name, conversion to physical value)
 ATTRIBUTE_MAP = {
     (0x0402, 0x0000): ("temperature", lambda v: v / 100.0),          # 0.01 degC
@@ -95,8 +108,7 @@ class State:
         entry["nwk"] = dev.nwk
         entry["manufacturer"] = dev.manufacturer or ""
         entry["model"] = dev.model or ""
-        entry["last_seen"] = dev.last_seen.timestamp() if getattr(
-            dev, "last_seen", None) else time.time()
+        entry["last_seen"] = to_epoch(getattr(dev, "last_seen", None))
         self._dirty = True
         return entry
 
@@ -269,9 +281,9 @@ async def main():
             for dev in app.devices.values():
                 if dev.nwk != 0x0000 and str(dev.ieee) in state.devices:
                     seen = getattr(dev, "last_seen", None)
-                    if seen:
+                    if seen is not None:
                         entry = state.devices[str(dev.ieee)]
-                        ts = seen.timestamp() if hasattr(seen, "timestamp") else float(seen)
+                        ts = to_epoch(seen)
                         if ts != entry.get("last_seen"):
                             entry["last_seen"] = ts
                             state._dirty = True
