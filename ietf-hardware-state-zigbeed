@@ -236,18 +236,6 @@ async def main():
                 continue
             for cluster in ep.in_clusters.values():
                 cluster.add_listener(ClusterListener(state, dev, cluster))
-                # seed from values zigpy already has cached (from earlier reports),
-                # so a freshly (re)started daemon is not blank until the next report
-                cache = getattr(cluster, "_attr_cache", {}) or {}
-                for attrid, raw in cache.items():
-                    mapped = ATTRIBUTE_MAP.get((cluster.cluster_id, attrid))
-                    if not mapped:
-                        continue
-                    prop, convert = mapped
-                    try:
-                        state.update(dev, prop, convert(raw))
-                    except (TypeError, ValueError):
-                        pass
         if configure:
             asyncio.get_event_loop().create_task(configure_reporting(dev))
 
