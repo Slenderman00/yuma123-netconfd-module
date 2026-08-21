@@ -270,6 +270,7 @@ async def main():
     LOG.info("network up, %d device(s) in the database", len(state.devices))
     state.write(force=True)
 
+    last_write = time.time()
     stop = asyncio.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         asyncio.get_event_loop().add_signal_handler(sig, stop.set)
@@ -299,7 +300,14 @@ async def main():
                         if ts != entry.get("last_seen"):
                             entry["last_seen"] = ts
                             state._dirty = True
-            state.write()
+            # heartbeat: refresh state.json at least every 30 s even when nothing
+            # changed, so the helper's liveness check does not read a healthy but
+            # idle daemon (sleepy sensors report only every ~hour) as "not running"
+            if time.time() - last_write >= 30:
+                state.write(force=True)
+                last_write = time.time()
+            else:
+                state.write()
             try:
                 await asyncio.wait_for(stop.wait(), timeout=1)
             except asyncio.TimeoutError:
