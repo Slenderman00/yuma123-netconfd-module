@@ -1,0 +1,234 @@
+#!/usr/bin/python3
+"""
+ietf-hardware-state-zigbee
+
+Reports Zigbee sensor devices (e.g. Aqara and IKEA sensors) as RFC 8348
+ietf-hardware-state XML. The readings come from the state file written by the
+ietf-hardware-state-zigbeed daemon, which owns the Zigbee coordinator (e.g. a
+Home Assistant Connect ZBT-2 with its factory Zigbee firmware).
+
+This script uses only the Python standard library and does not touch the
+radio; it can be run as often as netconfd likes.
+
+Usage:
+  ietf-hardware-state-zigbee [get]       print <hardware> XML (used by netconfd)
+  ietf-hardware-state-zigbee devices     list the known Zigbee devices
+  ietf-hardware-state-zigbee permit-join [<seconds>|off]
+                                         let new devices join (default 254 s)
+
+When installed as 'ietf-hardware-state-get' (symlink) the default subcommand
+is 'get'.
+
+Environment:
+  ZIGBEE_STATE_DIR        /var/lib/ietf-hardware-state-zigbee
+                                                   state directory of the daemon
+  ZIGBEE_DEVICE           (unset)                  only report this device (IEEE
+                                                   address), with bare component
+                                                   names (temperature, ...); use
+                                                   one netconfd instance per device
+  ZIGBEE_MAX_AGE          7200                     seconds, a reading older than
+                                                   this is reported unavailable
+  ZIGBEE_DAEMON_MAX_AGE   300                      seconds, if state.json is older
+                                                   than this the daemon is presumed
+                                                   dead and everything is unavailable
+"""
+
+import json
+import os
+import sys
+import time
+from xml.sax.saxutils import escape
+
+STATE_DIR = os.environ.get("ZIGBEE_STATE_DIR", "/var/lib/ietf-hardware-state-zigbee")
+STATE_FILE = os.path.join(STATE_DIR, "state.json")
+CTL_FILE = os.path.join(STATE_DIR, "permit-join")
+MAX_AGE = float(os.environ.get("ZIGBEE_MAX_AGE", "7200"))
+DAEMON_MAX_AGE = float(os.environ.get("ZIGBEE_DAEMON_MAX_AGE", "300"))
+
+NS_HW = "urn:ietf:params:xml:ns:yang:ietf-hardware-state"
+NS_IANAHW = "urn:ietf:params:xml:ns:yang:iana-hardware"
+
+# manufacturer strings as reported on the Zigbee network -> display name
+VENDORS = {"LUMI": "Aqara", "IKEA of Sweden": "IKEA"}
+
+# property -> (value-type, units-display); values are reported x1000, scale milli
+PROPERTIES = {
+    "temperature": ("celsius", "milli degrees"),
+    "humidity": ("percent-RH", "milli percent RH"),
+    "pressure": ("other", "air pressure hPa"),
+    "battery": ("other", "milli percent battery"),
+    "illuminance": ("other", "illuminance lx"),
+    "co2": ("other", "CO2 ppm"),
+    "pm25": ("other", "PM2.5 ug/m3"),
+    "occupancy": ("other", "occupancy 1=detected 0=clear"),
+    "contact": ("other", "contact 1=closed 0=open"),
+    "water_leak": ("other", "water leak 1=leak 0=dry"),
+    "smoke": ("other", "smoke 1=alarm 0=clear"),
+    "alarm": ("other", "alarm 1=alarm 0=clear"),
+}
+BINARY = {"occupancy", "contact", "water_leak", "smoke", "alarm"}
+
+
+def load_state():
+    with open(STATE_FILE) as f:
+        state = json.load(f)
+    if not isinstance(state, dict) or "devices" not in state:
+        raise ValueError("malformed %s" % STATE_FILE)
+    return state
+
+
+def select_devices(devices):
+    wanted = os.environ.get("ZIGBEE_DEVICE")
+    if wanted:
+        return {k: v for k, v in devices.items() if k == wanted}
+    return devices
+
+
+def single_device():
+    return bool(os.environ.get("ZIGBEE_DEVICE"))
+
+
+def sanitize(name):
+    out = "".join(c if c.isalnum() else "-" for c in str(name).lower())
+    while "--" in out:
+        out = out.replace("--", "-")
+    return out.strip("-") or "zigbee-device"
+
+
+def component_name(ieee, device):
+    model = device.get("model") or "zigbee-device"
+    base = sanitize(model.split()[0])
+    if single_device():
+        return base
+    return "%s-%s" % (base, sanitize(ieee).replace("-", "")[-4:])
+
+
+def timestamp(epoch=None):
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(epoch))
+
+
+def leaf(tag, value):
+    return "<%s>%s</%s>" % (tag, escape(str(value)), tag) if value not in (None, "") else ""
+
+
+def sensor_xml(name, parent, value, prop, when):
+    value_type, units = PROPERTIES.get(prop, ("other", prop))
+    precision = 0 if prop in BINARY else 2
+    scale = "units" if prop in BINARY else "milli"
+    out = ["<component>", leaf("name", name), "<class>ianahw:sensor</class>",
+           leaf("parent", parent), "<sensor-data>"]
+    if value is not None:
+        out += [leaf("value", int(value)), leaf("value-type", value_type),
+                leaf("value-scale", scale), leaf("value-precision", precision),
+                "<oper-status>ok</oper-status>", leaf("units-display", units),
+                leaf("value-timestamp", timestamp(when)),
+                "<value-update-rate>0</value-update-rate>"]
+    else:
+        out += [leaf("value-type", value_type), leaf("value-scale", scale),
+                leaf("value-precision", precision),
+                "<oper-status>unavailable</oper-status>",
+                leaf("units-display", units),
+                "<value-update-rate>0</value-update-rate>"]
+    out += ["</sensor-data>", "</component>"]
+    return "".join(out)
+
+
+def device_xml(ieee, device, daemon_alive):
+    name = component_name(ieee, device)
+    now = time.time()
+    vendor = device.get("manufacturer") or ""
+    desc = "Zigbee device %s" % ieee
+    if not daemon_alive:
+        desc += ", daemon not running"
+    out = ["<component>", leaf("name", name), "<class>ianahw:container</class>",
+           leaf("description", desc),
+           leaf("serial-num", sanitize(ieee).replace("-", "")),
+           leaf("mfg-name", VENDORS.get(vendor, vendor)),
+           leaf("model-name", device.get("model")),
+           "</component>"]
+    for prop, reading in sorted((device.get("properties") or {}).items()):
+        sensor_name = sanitize(prop) if single_device() else "%s-%s" % (name, sanitize(prop))
+        value = reading.get("value")
+        when = reading.get("time") or 0
+        stale = (now - when) > MAX_AGE
+        if not daemon_alive or stale or not isinstance(value, (int, float)):
+            value = None
+        else:
+            value = value if prop in BINARY else round(value * 1000)
+        out.append(sensor_xml(sensor_name, name, value, prop, when))
+    return "".join(out)
+
+
+def hardware_xml(state):
+    daemon_alive = (time.time() - state.get("updated", 0)) <= DAEMON_MAX_AGE
+    devices = select_devices(state.get("devices", {}))
+    out = ['<hardware xmlns="%s" xmlns:ianahw="%s">' % (NS_HW, NS_IANAHW),
+           leaf("last-change", timestamp(state.get("updated")))]
+    for ieee in sorted(devices):
+        out.append(device_xml(ieee, devices[ieee], daemon_alive))
+    out.append("</hardware>")
+    return "".join(out)
+
+
+def cmd_get(argv):
+    try:
+        state = load_state()
+    except (OSError, ValueError) as e:
+        sys.stderr.write("ietf-hardware-state-zigbee: %s\n" % e)
+        state = {"devices": {}, "updated": 0}
+    print(hardware_xml(state))
+    return 0
+
+
+def cmd_devices(argv):
+    state = load_state()
+    age = time.time() - state.get("updated", 0)
+    print("state file %s: updated %ds ago%s" % (
+        STATE_FILE, age, "" if age <= DAEMON_MAX_AGE else " (DAEMON NOT RUNNING?)"))
+    if state.get("permit_join_until", 0) > time.time():
+        print("permit join active for %ds" % (state["permit_join_until"] - time.time()))
+    for ieee, device in sorted(state.get("devices", {}).items()):
+        props = device.get("properties") or {}
+        print("%-26s %s %s component=%s last-seen=%s %s" % (
+            ieee, VENDORS.get(device.get("manufacturer", ""),
+                              device.get("manufacturer", "?")) or "?",
+            device.get("model", "?"), component_name(ieee, device),
+            timestamp(device.get("last_seen")),
+            "properties=%s" % ",".join(sorted(props)) if props else "no readings yet"))
+    return 0
+
+
+def cmd_permit_join(argv):
+    seconds = 254
+    if argv:
+        seconds = 0 if argv[0] in ("off", "0") else int(argv[0])
+    tmp = CTL_FILE + ".%d" % os.getpid()
+    with open(tmp, "w") as f:
+        f.write("%d\n" % seconds)
+    os.replace(tmp, CTL_FILE)
+    print("permit-join command written (%d s); watch the daemon log and the "
+          "'devices' subcommand" % seconds)
+    return 0
+
+
+COMMANDS = {"get": cmd_get, "devices": cmd_devices, "permit-join": cmd_permit_join}
+
+
+def main(argv):
+    if argv and argv[0] in ("-h", "--help"):
+        print(__doc__.strip())
+        return 0
+    if argv and argv[0] in COMMANDS:
+        try:
+            return COMMANDS[argv[0]](argv[1:])
+        except (OSError, ValueError) as e:
+            sys.stderr.write("ietf-hardware-state-zigbee %s: %s\n" % (argv[0], e))
+            return 1
+    if argv:
+        sys.stderr.write("unknown subcommand %r, see --help\n" % argv[0])
+        return 2
+    return cmd_get([])
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

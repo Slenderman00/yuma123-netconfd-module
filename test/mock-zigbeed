@@ -1,0 +1,65 @@
+#!/usr/bin/python3
+"""
+mock-zigbeed - writes the state.json that ietf-hardware-state-zigbeed would
+write, for testing ietf-hardware-state-zigbee without any hardware.
+
+Contains an Aqara WSDCGQ11LM climate sensor, an IKEA VALLHORN motion sensor
+and an IKEA PARASOLL door sensor whose readings are older than ZIGBEE_MAX_AGE
+(so its sensors must be reported unavailable).
+
+Usage: ZIGBEE_STATE_DIR=<dir> test/mock-zigbeed [--stale]
+  --stale   write an old 'updated' timestamp (daemon presumed dead)
+
+Python standard library only.
+"""
+
+import json
+import os
+import sys
+import time
+
+STATE_DIR = os.environ.get("ZIGBEE_STATE_DIR", "/var/lib/ietf-hardware-state-zigbee")
+now = time.time()
+old = now - 3 * 3600
+
+state = {
+    "updated": old if "--stale" in sys.argv else now,
+    "permit_join_until": 0,
+    "devices": {
+        "00:15:8d:00:0a:1b:2c:3d": {
+            "nwk": 4711, "manufacturer": "LUMI", "model": "lumi.weather",
+            "last_seen": now - 60,
+            "properties": {
+                "temperature": {"value": 23.45, "time": now - 60},
+                "humidity": {"value": 40.12, "time": now - 60},
+                "pressure": {"value": 1001.3, "time": now - 60},
+                "battery": {"value": 91.0, "time": now - 3600},
+            },
+        },
+        "84:27:12:ff:fe:1a:2b:3c": {
+            "nwk": 4712, "manufacturer": "IKEA of Sweden",
+            "model": "VALLHORN Wireless Motion Sensor", "last_seen": now - 30,
+            "properties": {
+                "occupancy": {"value": 0, "time": now - 30},
+                "illuminance": {"value": 120.0, "time": now - 30},
+                "battery": {"value": 84.0, "time": now - 3600},
+            },
+        },
+        "84:27:12:ff:fe:4d:5e:6f": {
+            "nwk": 4713, "manufacturer": "IKEA of Sweden",
+            "model": "PARASOLL Door/Window Sensor", "last_seen": old,
+            "properties": {
+                "contact": {"value": 1, "time": old},
+                "battery": {"value": 77.0, "time": old},
+            },
+        },
+    },
+}
+
+os.makedirs(STATE_DIR, exist_ok=True)
+path = os.path.join(STATE_DIR, "state.json")
+tmp = path + ".tmp"
+with open(tmp, "w") as f:
+    json.dump(state, f, indent=1)
+os.replace(tmp, path)
+print("wrote %s (%s)" % (path, "stale" if "--stale" in sys.argv else "fresh"))

@@ -1,0 +1,291 @@
+#!/usr/bin/python3
+"""
+ietf-hardware-state-zigbeed
+
+The one long-running process of the Zigbee ietf-hardware-state implementation.
+Owns the Zigbee coordinator (e.g. a Home Assistant Connect ZBT-2 with its
+factory Zigbee/EZSP firmware), maintains the Zigbee network with the zigpy
+stack (the libraries behind Home Assistant ZHA), receives attribute reports
+from the sensors (Aqara, IKEA, ...) and atomically writes their current
+readings to a JSON state file.
+
+The stateless helper 'ietf-hardware-state-zigbee' (run by netconfd) only reads
+that file; no MQTT broker, no containers.
+
+Dependencies (the only part of this branch that is not python3 stdlib):
+  pip install bellows zha-quirks
+
+Commands are file based: writing a number of seconds (or nothing, meaning 254)
+to <state-dir>/permit-join lets new devices join, e.g.:
+  echo 254 | sudo tee /var/lib/ietf-hardware-state-zigbee/permit-join
+The helper's 'permit-join' subcommand does exactly that.
+
+Environment:
+  ZIGBEE_DEVICE_PATH      /dev/ttyACM0             serial port of the coordinator;
+                                                   with two ZBT-2 dongles use the
+                                                   /dev/serial/by-id/usb-Nabu_Casa_ZBT-2_<serial>... path
+  ZIGBEE_BAUDRATE         460800
+  ZIGBEE_FLOW_CONTROL     hardware                 'hardware', 'software' or '' (none)
+  ZIGBEE_STATE_DIR        /var/lib/ietf-hardware-state-zigbee
+                                                   holds state.json (written here),
+                                                   zigbee.db (network + paired devices)
+                                                   and the permit-join command file
+"""
+
+import asyncio
+import json
+import logging
+import os
+import signal
+import sys
+import time
+
+LOG = logging.getLogger("ietf-hardware-state-zigbeed")
+
+DEVICE_PATH = os.environ.get("ZIGBEE_DEVICE_PATH", "/dev/ttyACM0")
+BAUDRATE = int(os.environ.get("ZIGBEE_BAUDRATE", "460800"))
+FLOW_CONTROL = os.environ.get("ZIGBEE_FLOW_CONTROL", "hardware") or None
+STATE_DIR = os.environ.get("ZIGBEE_STATE_DIR", "/var/lib/ietf-hardware-state-zigbee")
+STATE_FILE = os.path.join(STATE_DIR, "state.json")
+CTL_FILE = os.path.join(STATE_DIR, "permit-join")
+DB_FILE = os.path.join(STATE_DIR, "zigbee.db")
+
+# (cluster id, attribute id) -> (property name, conversion to physical value)
+ATTRIBUTE_MAP = {
+    (0x0402, 0x0000): ("temperature", lambda v: v / 100.0),          # 0.01 degC
+    (0x0405, 0x0000): ("humidity", lambda v: v / 100.0),             # 0.01 %RH
+    (0x0403, 0x0000): ("pressure", float),                           # hPa
+    (0x0400, 0x0000): ("illuminance",
+                       lambda v: round(10 ** ((v - 1) / 10000.0), 1) if v else 0),
+    (0x0001, 0x0021): ("battery", lambda v: v / 2.0),                # half percent
+    (0x0406, 0x0000): ("occupancy", lambda v: int(v) & 1),
+    (0x0006, 0x0000): ("contact", lambda v: 0 if v else 1),          # OnOff: on=open
+    (0x040D, 0x0000): ("co2", lambda v: round(float(v) * 1e6, 1)),   # fraction -> ppm
+    (0x042A, 0x0000): ("pm25", lambda v: round(float(v), 1)),        # ug/m3
+}
+
+# IAS zone types -> property reported from the zone status alarm1 bit
+IAS_ZONE_PROPERTIES = {0x000D: "occupancy", 0x0015: "contact", 0x002A: "water_leak",
+                       0x0028: "smoke"}
+
+# clusters worth binding + configuring reporting for (min s, max s, change)
+REPORT_CONFIG = {
+    0x0402: (0x0000, 30, 3600, 20),
+    0x0405: (0x0000, 30, 3600, 50),
+    0x0403: (0x0000, 30, 3600, 1),
+    0x0400: (0x0000, 30, 3600, 500),
+    0x0001: (0x0021, 3600, 62 * 60, 1),
+    0x0406: (0x0000, 0, 3600, 1),
+    0x040D: (0x0000, 30, 3600, 1),
+    0x042A: (0x0000, 30, 3600, 1),
+}
+
+
+class State:
+    """The state.json contents, updated on every report."""
+
+    def __init__(self):
+        self.devices = {}
+        self.permit_until = 0
+        self._dirty = True
+
+    def device(self, dev):
+        key = str(dev.ieee)
+        entry = self.devices.setdefault(key, {"properties": {}})
+        entry["nwk"] = dev.nwk
+        entry["manufacturer"] = dev.manufacturer or ""
+        entry["model"] = dev.model or ""
+        entry["last_seen"] = dev.last_seen.timestamp() if getattr(
+            dev, "last_seen", None) else time.time()
+        self._dirty = True
+        return entry
+
+    def update(self, dev, prop, value):
+        entry = self.device(dev)
+        entry["properties"][prop] = {"value": value, "time": time.time()}
+        LOG.info("%s (%s %s): %s = %s", dev.ieee, entry["manufacturer"],
+                 entry["model"], prop, value)
+
+    def remove(self, dev):
+        self.devices.pop(str(dev.ieee), None)
+        self._dirty = True
+
+    def write(self, force=False):
+        if not (self._dirty or force):
+            return
+        data = {"updated": time.time(), "permit_join_until": self.permit_until,
+                "devices": self.devices}
+        tmp = STATE_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp, STATE_FILE)
+        self._dirty = False
+
+
+class ClusterListener:
+    def __init__(self, state, dev, cluster):
+        self.state, self.dev, self.cluster = state, dev, cluster
+
+    def attribute_updated(self, attrid, value, *args):
+        mapped = ATTRIBUTE_MAP.get((self.cluster.cluster_id, attrid))
+        if mapped:
+            prop, convert = mapped
+            try:
+                self.state.update(self.dev, prop, convert(value))
+            except (TypeError, ValueError):
+                pass
+        elif self.cluster.cluster_id == 0x0500 and attrid == 0x0002:
+            self._zone_status(value)
+
+    def cluster_command(self, tsn, command_id, args):
+        # IAS zone status change notification
+        if self.cluster.cluster_id == 0x0500 and command_id == 0 and args:
+            self._zone_status(args[0])
+
+    def _zone_status(self, status):
+        zone_type = self.cluster._attr_cache.get(0x0001) if hasattr(
+            self.cluster, "_attr_cache") else None
+        prop = IAS_ZONE_PROPERTIES.get(zone_type, "alarm")
+        value = int(status) & 1
+        if prop == "contact":
+            value = 0 if value else 1        # alarm1 set = open
+        self.state.update(self.dev, prop, value)
+
+    def general_command(self, *args, **kwargs):
+        pass
+
+
+class AppListener:
+    def __init__(self, state, hook):
+        self.state, self.hook = state, hook
+
+    def device_joined(self, dev):
+        LOG.info("device joined: %s", dev.ieee)
+
+    def raw_device_initialized(self, dev):
+        pass
+
+    def device_initialized(self, dev):
+        LOG.info("device initialized: %s %s %s", dev.ieee, dev.manufacturer, dev.model)
+        self.hook(dev, configure=True)
+
+    def device_left(self, dev):
+        LOG.info("device left: %s", dev.ieee)
+        self.state.remove(dev)
+
+    def device_removed(self, dev):
+        self.state.remove(dev)
+
+
+async def configure_reporting(dev):
+    """Best effort bind + configure reporting so sleepy sensors push updates."""
+    for ep_id, ep in dev.endpoints.items():
+        if ep_id == 0:
+            continue
+        for cluster in ep.in_clusters.values():
+            cfg = REPORT_CONFIG.get(cluster.cluster_id)
+            if cfg is None:
+                continue
+            attrid, min_int, max_int, change = cfg
+            try:
+                await cluster.bind()
+                await cluster.configure_reporting(attrid, min_int, max_int, change)
+                LOG.info("%s: reporting configured for cluster 0x%04x",
+                         dev.ieee, cluster.cluster_id)
+            except Exception as e:
+                LOG.debug("%s: reporting for cluster 0x%04x not configured: %s",
+                          dev.ieee, cluster.cluster_id, e)
+
+
+async def main():
+    logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"),
+                        format="%(asctime)s %(levelname)s %(message)s")
+    os.makedirs(STATE_DIR, exist_ok=True)
+
+    try:
+        import bellows.zigbee.application
+    except ImportError:
+        LOG.error("the bellows package is required: pip install bellows zha-quirks")
+        return 1
+    try:
+        import zhaquirks
+        zhaquirks.setup()
+        LOG.info("zha-quirks loaded")
+    except ImportError:
+        LOG.warning("zha-quirks not installed, some devices (notably Aqara) "
+                    "report less without it")
+
+    state = State()
+
+    def hook_device(dev, configure=False):
+        state.device(dev)
+        for ep_id, ep in getattr(dev, "endpoints", {}).items():
+            if ep_id == 0:
+                continue
+            for cluster in ep.in_clusters.values():
+                cluster.add_listener(ClusterListener(state, dev, cluster))
+        if configure:
+            asyncio.get_event_loop().create_task(configure_reporting(dev))
+
+    config = {
+        "device": {"path": DEVICE_PATH, "baudrate": BAUDRATE,
+                   "flow_control": FLOW_CONTROL},
+        "database_path": DB_FILE,
+    }
+    LOG.info("starting zigpy/bellows on %s (%d, flow control: %s)",
+             DEVICE_PATH, BAUDRATE, FLOW_CONTROL)
+    app = await bellows.zigbee.application.ControllerApplication.new(
+        config, auto_form=True)
+    listener = AppListener(state, hook_device)
+    app.add_listener(listener)
+    app.groups.add_listener(listener)
+
+    for dev in app.devices.values():
+        if dev.nwk != 0x0000:                # skip the coordinator itself
+            hook_device(dev)
+    LOG.info("network up, %d device(s) in the database", len(state.devices))
+    state.write(force=True)
+
+    stop = asyncio.Event()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        asyncio.get_event_loop().add_signal_handler(sig, stop.set)
+
+    try:
+        while not stop.is_set():
+            # permit-join command file
+            if os.path.exists(CTL_FILE):
+                try:
+                    with open(CTL_FILE) as f:
+                        text = f.read().strip()
+                    os.unlink(CTL_FILE)
+                    seconds = min(254, max(0, int(text or "254")))
+                    LOG.info("permit join for %d s", seconds)
+                    await app.permit(seconds)
+                    state.permit_until = time.time() + seconds
+                    state._dirty = True
+                except (OSError, ValueError) as e:
+                    LOG.error("permit-join failed: %s", e)
+            # refresh last_seen and write if anything changed
+            for dev in app.devices.values():
+                if dev.nwk != 0x0000 and str(dev.ieee) in state.devices:
+                    seen = getattr(dev, "last_seen", None)
+                    if seen:
+                        entry = state.devices[str(dev.ieee)]
+                        ts = seen.timestamp() if hasattr(seen, "timestamp") else float(seen)
+                        if ts != entry.get("last_seen"):
+                            entry["last_seen"] = ts
+                            state._dirty = True
+            state.write()
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=1)
+            except asyncio.TimeoutError:
+                pass
+    finally:
+        state.write(force=True)
+        LOG.info("shutting down")
+        await app.shutdown()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(main()))
