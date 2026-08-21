@@ -7,7 +7,9 @@ After=network.target
 
 [Service]
 # with two ZBT-2 dongles on one host, always use the /dev/serial/by-id path
-Environment=ZIGBEE_DEVICE_PATH=/dev/ttyACM0
+# set to the Zigbee dongle's stable by-id path (NOT /dev/ttyACM*, which
+# swaps between dongles across reboots)
+Environment=ZIGBEE_DEVICE_PATH=/dev/serial/by-id/usb-Nabu_Casa_ZBT-2_A4CB8FD0C5D4-if00
 Environment=ZIGBEE_STATE_DIR=/var/lib/ietf-hardware-state-zigbee
 # venv with 'pip install bellows zha-quirks'; use plain
 # /usr/bin/ietf-hardware-state-zigbeed if they are installed system wide

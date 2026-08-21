@@ -277,8 +277,18 @@ async def main():
     }
     LOG.info("starting zigpy/bellows on %s (%d, flow control: %s)",
              DEVICE_PATH, BAUDRATE, FLOW_CONTROL)
-    app = await bellows.zigbee.application.ControllerApplication.new(
-        config, auto_form=True)
+    # Bound the radio bring-up: at cold boot the EZSP NCP can stall and never
+    # return, hanging the whole daemon. Time it out and exit non-zero so the
+    # supervisor (systemd Restart=on-failure) retries once the dongle settles.
+    try:
+        app = await asyncio.wait_for(
+            bellows.zigbee.application.ControllerApplication.new(
+                config, auto_form=True),
+            timeout=float(os.environ.get("ZIGBEE_STARTUP_TIMEOUT", "90")))
+    except (asyncio.TimeoutError, Exception) as e:
+        LOG.error("radio startup failed (%s: %s); exiting for a restart",
+                  type(e).__name__, e)
+        return 1
     listener = AppListener(state, hook_device)
     app.add_listener(listener)
     app.groups.add_listener(listener)
