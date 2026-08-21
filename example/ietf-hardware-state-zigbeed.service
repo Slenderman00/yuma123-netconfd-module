@@ -1,0 +1,19 @@
+# systemd unit for the Zigbee daemon (alternative to starting it from rc.local).
+#   sudo cp example/ietf-hardware-state-zigbeed.service /etc/systemd/system/
+#   sudo systemctl enable --now ietf-hardware-state-zigbeed
+[Unit]
+Description=Zigbee daemon for the ietf-hardware-state netconfd module
+After=network.target
+
+[Service]
+# with two ZBT-2 dongles on one host, always use the /dev/serial/by-id path
+Environment=ZIGBEE_DEVICE_PATH=/dev/ttyACM0
+Environment=ZIGBEE_STATE_DIR=/var/lib/ietf-hardware-state-zigbee
+# venv with 'pip install bellows zha-quirks'; use plain
+# /usr/bin/ietf-hardware-state-zigbeed if they are installed system wide
+ExecStart=/opt/ietf-hardware-state-zigbee/venv/bin/python3 /usr/bin/ietf-hardware-state-zigbeed
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

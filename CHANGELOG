@@ -1,16 +1,14 @@
-yuma123-netconfd-module-ietf-hardware-state-matter (1.0) bookworm; urgency=medium
+yuma123-netconfd-module-ietf-hardware-state-zigbee (1.0) bookworm; urgency=medium
 
-  * Matter over Thread implementation: sensor readings come from the Open Home
-    Foundation Matter Server (python-matter-server) through the Python helper
-    ietf-hardware-state-matter (standard library only, own WebSocket client)
-  * Each Matter node, e.g. IKEA ALPSTUGA, is a container component with
-    temperature, humidity, co2, pm25 and air-quality sensor components;
-    offline nodes are reported with oper-status unavailable
-  * Helper subcommands nodes, commission (Thread dataset from OTBR) and thread-dataset
-  * MATTER_NODE_ID selects one node for one netconfd instance per device
-  * example/docker-compose.yml for OTBR (ZBT-2) and Matter Server,
-    test/mock-matter-server for testing without hardware
-  * Removed the STS3x/PMS7003 I2C/UART code
+  * Zigbee implementation for Aqara and IKEA sensors on a ZBT-2 dongle with its
+    factory Zigbee/EZSP firmware
+  * One long-running zigpy/bellows daemon (ietf-hardware-state-zigbeed) owns the
+    radio and writes state.json; the stdlib-only helper ietf-hardware-state-zigbee
+    turns it into ietf-hardware-state XML for netconfd (no MQTT, no containers)
+  * permit-join through a command file, stale readings and a dead daemon are
+    reported as oper-status unavailable
+  * ZIGBEE_DEVICE selects one device for one netconfd instance per device
+  * test/mock-zigbeed for testing without hardware, systemd unit in example/
 
- -- Joar Heimonen <spam@joar.me>  Wed, 19 Aug 2026 12:30:00 +0200
+ -- Joar Heimonen <spam@joar.me>  Thu, 21 Aug 2026 12:00:00 +0200
 
