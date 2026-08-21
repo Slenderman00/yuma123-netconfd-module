@@ -82,15 +82,19 @@ IAS_ZONE_PROPERTIES = {0x000D: "occupancy", 0x0015: "contact", 0x002A: "water_le
                        0x0028: "smoke"}
 
 # clusters worth binding + configuring reporting for (min s, max s, change)
-REPORT_CONFIG = {
-    0x0402: (0x0000, 30, 3600, 20),
-    0x0405: (0x0000, 30, 3600, 50),
-    0x0403: (0x0000, 30, 3600, 1),
-    0x0400: (0x0000, 30, 3600, 500),
-    0x0001: (0x0021, 3600, 62 * 60, 1),
-    0x0406: (0x0000, 0, 3600, 1),
-    0x040D: (0x0000, 30, 3600, 1),
-    0x042A: (0x0000, 30, 3600, 1),
+# Battery-friendly reporting: report on change (min interval rate-limits, max
+# interval is a slow keep-alive heartbeat) — NOT a fixed fast interval, which
+# would wake the sensor constantly and wreck battery life. The honest freshness
+# comes from the read side (report_times), not from polling the device often.
+REPORT_CONFIG = {                        # (attr, min_s, max_s, reportable change)
+    0x0402: (0x0000, 30, 3600, 20),      # temperature, 0.2 degC, heartbeat hourly
+    0x0405: (0x0000, 30, 3600, 50),      # humidity, 0.5 %RH
+    0x0403: (0x0000, 30, 3600, 1),       # pressure
+    0x0400: (0x0000, 30, 3600, 500),     # illuminance
+    0x0001: (0x0021, 3600, 3600, 1),     # battery
+    0x0406: (0x0000, 0, 3600, 1),        # occupancy
+    0x040D: (0x0000, 30, 3600, 1),       # co2
+    0x042A: (0x0000, 30, 3600, 1),       # pm25
 }
 
 
@@ -135,11 +139,46 @@ class State:
         self._dirty = False
 
 
+_REPORT_TIMES = {"read": 0.0, "data": {}}
+
+
+def report_times():
+    """When each attribute was last actually reported by the device, from
+    zigpy's own attribute cache DB (last_updated). Advances only on a real
+    report, never on low-level polls, so it is the honest freshness for the
+    value-timestamp and the staleness cutoff. Read-only and throttled."""
+    now = time.time()
+    if now - _REPORT_TIMES["read"] < 10:
+        return _REPORT_TIMES["data"]
+    data = {}
+    try:
+        import sqlite3
+        con = sqlite3.connect("file:%s?mode=ro" % DB_FILE, uri=True, timeout=2)
+        try:
+            table = None
+            for (name,) in con.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' "
+                    "AND name LIKE 'attributes_cache%'"):
+                table = name
+            if table:
+                for ieee, cl, attr, lu in con.execute(
+                        "SELECT ieee, cluster_id, attr_id, last_updated FROM %s" % table):
+                    data[(str(ieee), int(cl), int(attr))] = float(lu)
+        finally:
+            con.close()
+    except Exception as e:
+        LOG.debug("report_times read failed: %s", e)
+    _REPORT_TIMES["read"] = now
+    _REPORT_TIMES["data"] = data
+    return data
+
+
 def poll_attributes(app, state):
     """Read the current value of every mapped attribute from zigpy's own cache
     (public Cluster.get() API) and update the state on change. This does not
     depend on which listener/event name a given zigpy version uses to deliver
     reports; zigpy always keeps the last reported value in the cluster cache."""
+    rt = report_times()
     for dev in app.devices.values():
         if dev.nwk == 0x0000:
             continue
@@ -160,15 +199,17 @@ def poll_attributes(app, state):
                         value = convert(raw)
                     except (TypeError, ValueError):
                         continue
-                    # timestamp the reading with when the device was last heard
-                    # from, not "now" (the cached value would otherwise look fresh
-                    # forever) and not the last value change (an alive sensor
-                    # reporting a steady value would look increasingly stale).
-                    seen = to_epoch(getattr(dev, "last_seen", None))
+                    # timestamp the reading with when this attribute was last
+                    # actually reported (not last contact / low-level poll), so a
+                    # sensor that goes quiet stops advancing its timestamp and the
+                    # helper reports it unavailable once it is older than MAX_AGE.
+                    when = rt.get((str(dev.ieee), cl_id, attr_id))
+                    if when is None:
+                        continue          # never reported -> nothing honest to show
                     entry = state.devices.get(str(dev.ieee))
                     prior = (entry or {}).get("properties", {}).get(prop, {})
-                    if prior.get("value") != value or seen - prior.get("time", 0) >= 5:
-                        state.update(dev, prop, value, when=seen)
+                    if prior.get("value") != value or when - prior.get("time", 0) >= 1:
+                        state.update(dev, prop, value, when=when)
 
 
 class ClusterListener:
@@ -227,7 +268,11 @@ class AppListener:
 
 
 async def configure_reporting(dev):
-    """Best effort bind + configure reporting so sleepy sensors push updates."""
+    """Bind + configure reporting so the sensor pushes updates on a fixed
+    interval. Aqara end devices only accept this while awake, so this is
+    retried opportunistically (see the main loop) until it succeeds once.
+    Returns True if every mapped cluster was configured."""
+    ok = True
     for ep_id, ep in dev.endpoints.items():
         if ep_id == 0:
             continue
@@ -244,6 +289,8 @@ async def configure_reporting(dev):
             except Exception as e:
                 LOG.debug("%s: reporting for cluster 0x%04x not configured: %s",
                           dev.ieee, cluster.cluster_id, e)
+                ok = False
+    return ok
 
 
 async def main():
