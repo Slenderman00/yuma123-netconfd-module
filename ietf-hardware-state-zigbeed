@@ -134,6 +134,37 @@ class State:
         self._dirty = False
 
 
+def poll_attributes(app, state):
+    """Read the current value of every mapped attribute from zigpy's own cache
+    (public Cluster.get() API) and update the state on change. This does not
+    depend on which listener/event name a given zigpy version uses to deliver
+    reports; zigpy always keeps the last reported value in the cluster cache."""
+    for dev in app.devices.values():
+        if dev.nwk == 0x0000:
+            continue
+        for ep_id, ep in getattr(dev, "endpoints", {}).items():
+            if ep_id == 0:
+                continue
+            for cluster in ep.in_clusters.values():
+                for (cl_id, attr_id), (prop, convert) in ATTRIBUTE_MAP.items():
+                    if cluster.cluster_id != cl_id:
+                        continue
+                    try:
+                        raw = cluster.get(attr_id)
+                    except Exception:
+                        raw = None
+                    if raw is None:
+                        continue
+                    try:
+                        value = convert(raw)
+                    except (TypeError, ValueError):
+                        continue
+                    entry = state.devices.get(str(dev.ieee))
+                    prev = (entry or {}).get("properties", {}).get(prop, {}).get("value")
+                    if prev != value:
+                        state.update(dev, prop, value)
+
+
 class ClusterListener:
     def __init__(self, state, dev, cluster):
         self.state, self.dev, self.cluster = state, dev, cluster
@@ -288,6 +319,7 @@ async def main():
                         if ts != entry.get("last_seen"):
                             entry["last_seen"] = ts
                             state._dirty = True
+            poll_attributes(app, state)
             # heartbeat: refresh state.json at least every 30 s even when nothing
             # changed, so the helper's liveness check does not read a healthy but
             # idle daemon (sleepy sensors report only every ~hour) as "not running"

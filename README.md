@@ -42,7 +42,10 @@ A reading older than `ZIGBEE_MAX_AGE` (default 2 h) is reported with
 
 No MQTT broker, no containers. Something must run continuously because Zigbee
 battery sensors wake up, push their report and go back to sleep — that
-something is the single `ietf-hardware-state-zigbeed` daemon. The netconfd
+something is the single `ietf-hardware-state-zigbeed` daemon. The daemon reads
+each mapped attribute from zigpy's own attribute cache (the stable `Cluster.get()`
+API) once a second and writes `state.json` on change, so it does not depend on
+which listener/event a given zigpy version uses to deliver reports. The netconfd
 module (`ietf-hardware-state.c`) is unchanged from the other branches: it runs
 `ietf-hardware-state-get` (symlink to the stateless helper) on every read of
 `/hardware`.
