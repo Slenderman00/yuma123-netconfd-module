@@ -26,8 +26,11 @@ Environment:
                                                    address), with bare component
                                                    names (temperature, ...); use
                                                    one netconfd instance per device
-  ZIGBEE_MAX_AGE          7200                     seconds, a reading older than
-                                                   this is reported unavailable
+  ZIGBEE_MAX_AGE          7200                     seconds, if the device itself
+                                                   has not been heard from (last_seen)
+                                                   in this long its readings are
+                                                   reported unavailable; a value that
+                                                   is simply unchanged is still valid
   ZIGBEE_DAEMON_MAX_AGE   300                      seconds, if state.json is older
                                                    than this the daemon is presumed
                                                    dead and everything is unavailable
@@ -137,9 +140,24 @@ def device_xml(ieee, device, daemon_alive):
     name = component_name(ieee, device)
     now = time.time()
     vendor = device.get("manufacturer") or ""
+    # A reading is valid as long as we still hear from the device itself: these
+    # sensors only send a report when the value crosses its reportable delta, so
+    # silence means "unchanged", not "unknown". last_seen only advances on frames
+    # the device itself sends (these are sleepy end devices; the coordinator does
+    # not poll them), so while it keeps advancing we have good reason to believe
+    # the device is alive and its last value still holds. The value-timestamp
+    # therefore tracks last_seen: it keeps updating while we hear from the device
+    # and freezes the moment it goes quiet, so the panel shows a fresh timestamp
+    # exactly as long as we can vouch for the reading. Once the device has been
+    # silent for MAX_AGE we no longer know it is there, so its readings go
+    # unavailable and the timestamp stops.
+    last_seen = device.get("last_seen") or 0
+    device_present = (now - last_seen) <= MAX_AGE
     desc = "Zigbee device %s" % ieee
     if not daemon_alive:
         desc += ", daemon not running"
+    elif not device_present:
+        desc += ", not heard from in %ds" % int(now - last_seen)
     out = ["<component>", leaf("name", name), "<class>ianahw:container</class>",
            leaf("description", desc),
            leaf("serial-num", sanitize(ieee).replace("-", "")),
@@ -150,10 +168,12 @@ def device_xml(ieee, device, daemon_alive):
         sensor_name = sanitize(prop) if single_device() else "%s-%s" % (name, sanitize(prop))
         value = reading.get("value")
         when = reading.get("time") or 0
-        stale = (now - when) > MAX_AGE
-        if not daemon_alive or stale or not isinstance(value, (int, float)):
+        if not daemon_alive or not device_present or not isinstance(value, (int, float)):
             value = None
         else:
+            # value confirmed still valid as of the last time we heard from the
+            # device, so stamp it with that (never earlier than the real report)
+            when = max(when, last_seen)
             value = value if prop in BINARY else round(value * 1000)
         out.append(sensor_xml(sensor_name, name, value, prop, when))
     return "".join(out)

@@ -19,8 +19,16 @@ Each Zigbee device is one `ianahw:container` component, its readings are
 `<model>` is the first word of the Zigbee model identifier, `<ieee>` the last 4
 hex digits of the IEEE address (e.g. `vallhorn-2b3c`, `lumi-weather-2c3d`).
 Illuminance, CO2 and PM2.5 are reported the same way when a device has them.
-A reading older than `ZIGBEE_MAX_AGE` (default 2 h) is reported with
-`<oper-status>unavailable</oper-status>`.
+
+These sensors only transmit when a value crosses its reportable delta, so no
+report means "unchanged", not "unknown". A reading therefore stays valid — and
+its `value-timestamp` keeps advancing — as long as the device keeps checking in
+(`last_seen` advances only on frames the device itself sends, which is good
+reason to believe it is alive). Once the device has been silent for
+`ZIGBEE_MAX_AGE` (default 2 h) we can no longer vouch for it: its readings are
+reported `<oper-status>unavailable</oper-status>` and the timestamp freezes. This
+is what keeps the panel from lying — a fresh timestamp exactly as long as we can
+still hear the device, and a stalling one the moment we cannot.
 
 ## Architecture
 
@@ -143,7 +151,7 @@ Helper environment (netconfd):
 |-------------------------|-----------|-------------------------------------------------------------|
 | `ZIGBEE_STATE_DIR`      | as above  | must match the daemon                                       |
 | `ZIGBEE_DEVICE`         | *(unset)* | report only this IEEE address, with bare component names (`temperature`, `co2`, ...) — one netconfd instance per device, as on the other branches |
-| `ZIGBEE_MAX_AGE`        | `7200`    | seconds before a reading is reported unavailable            |
+| `ZIGBEE_MAX_AGE`        | `7200`    | seconds of device silence (`last_seen`) before its readings are reported unavailable; an unchanged-but-still-present reading stays valid |
 | `ZIGBEE_DAEMON_MAX_AGE` | `300`     | seconds without a state.json update before everything is reported unavailable |
 | `IETF_HARDWARE_STATE_GET` | `ietf-hardware-state-get` | helper command run by the module            |
 
