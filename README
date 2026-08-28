@@ -11,11 +11,14 @@ the hs-sensor-shield YANG module for the Heimonen Solutions sensor shield.
  air-quality            SGP41     I2C 0x59        voc-index, nox-index (1-500),
                                                   voc-raw, nox-raw
  temperature-humidity   SHT41     I2C 0x44        temperature (C), humidity (%RH)
+                        (SCD41 built-in sensor as automatic fallback, see <sensor>)
  pressure               LPS22HB   I2C 0x5c/0x5d   pressure (hPa), temperature (C)
  illuminance            BH1750    I2C 0x23/0x5c   illuminance (lx)
 
 Every sensor container carries <sensor> (part number), <oper-status> (ok or
-unavailable) and, when ok, <last-update>.
+unavailable) and, when ok, <last-update>. When no SHT41 is detected,
+temperature-humidity is served from the SCD41's built-in temperature/humidity
+sensor and <sensor> reads SCD41 instead of SHT41.
 
 The sensors are sampled continuously by the module:
 

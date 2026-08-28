@@ -104,6 +104,8 @@ typedef struct shield_state_t_ {
     /* SCD41 */
     time_t scd_time;
     uint16_t co2;
+    float scd_temperature;
+    float scd_humidity;
     /* SGP41 */
     time_t sgp_time;
     uint16_t sraw_voc;
@@ -265,6 +267,8 @@ static void *i2c_sampler(void *arg)
                     }
                     pthread_mutex_lock(&state_lock);
                     state.co2 = co2;
+                    state.scd_temperature = scd_temperature;
+                    state.scd_humidity = scd_humidity;
                     state.scd_time = now;
                     pthread_mutex_unlock(&state_lock);
                 }
@@ -490,15 +494,25 @@ static status_t
     }
     used = sensor_close(buf, used, "air-quality");
 
-    /* Sensirion SHT41 */
-    available = is_available(s.sht_time, now, MAX_AGE_I2C_S);
-    used = sensor_open(buf, used, "temperature-humidity", "SHT41",
-                       available, s.sht_time);
-    if (available) {
+    /* Sensirion SHT41, falling back to the SCD41's built-in temperature
+       and humidity sensor when there is no SHT41 */
+    if (is_available(s.sht_time, now, MAX_AGE_I2C_S)) {
+        used = sensor_open(buf, used, "temperature-humidity", "SHT41",
+                           1, s.sht_time);
         used = xml_append(buf, used,
                           "<temperature>%.2f</temperature>"
                           "<humidity>%.2f</humidity>",
                           s.temperature, s.humidity);
+    } else if (is_available(s.scd_time, now, MAX_AGE_SCD41_S)) {
+        used = sensor_open(buf, used, "temperature-humidity", "SCD41",
+                           1, s.scd_time);
+        used = xml_append(buf, used,
+                          "<temperature>%.2f</temperature>"
+                          "<humidity>%.2f</humidity>",
+                          s.scd_temperature, s.scd_humidity);
+    } else {
+        used = sensor_open(buf, used, "temperature-humidity", "SHT41",
+                           0, 0);
     }
     used = sensor_close(buf, used, "temperature-humidity");
 

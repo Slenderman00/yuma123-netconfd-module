@@ -174,7 +174,10 @@ module hs-sensor-shield {
     container temperature-humidity {
       description
         "Temperature and relative humidity, Sensirion SHT41 on I2C
-         (0x44).";
+         (0x44). When no SHT41 is detected the built-in temperature and
+         humidity sensor of the SCD41 is used as an automatic fallback;
+         the 'sensor' leaf tells which sensor provided the values
+         (SHT41: +-0.1 C / +-1 %RH typical, SCD41: +-0.8 C / +-6 %RH).";
       uses sensor-status;
       leaf temperature {
         type decimal64 {
@@ -182,7 +185,7 @@ module hs-sensor-shield {
         }
         units "celsius";
         description
-          "Temperature, +-0.1 C typical.";
+          "Temperature.";
       }
       leaf humidity {
         type decimal64 {
@@ -191,7 +194,7 @@ module hs-sensor-shield {
         }
         units "percent";
         description
-          "Relative humidity, +-1 %RH typical.";
+          "Relative humidity.";
       }
     }
 
