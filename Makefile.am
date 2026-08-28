@@ -28,9 +28,6 @@ libhs_sensor_shield_la_SOURCES = \
 libhs_sensor_shield_la_CPPFLAGS = -I${includedir}/yuma/agt -I${includedir}/yuma/ncx -I${includedir}/yuma/platform $(XML_CPPFLAGS) -I. -pthread
 libhs_sensor_shield_la_LDFLAGS = -module -lyumaagt -lyumancx -pthread
 
-# The YANG module implemented by this netconfd module, installed where
-# netconfd searches for modules (/usr/share/yuma/modules/...)
-yangdir = $(datadir)/yuma/modules/hs-sensor-shield
-yang_DATA = hs-sensor-shield@2026-08-28.yang
-
-EXTRA_DIST = $(yang_DATA)
+# The YANG modules implemented by this netconfd module. netconfd loads them
+# from libyuma-base (/usr/share/yuma/modules/ietf); copies are kept here for reference.
+EXTRA_DIST = ietf-hardware-state@2018-03-13.yang iana-hardware@2018-03-13.yang

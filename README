@@ -1,40 +1,56 @@
 # Overview
 hs-sensor-shield module for netconfd (yuma123): Raspberry Pi implementation of
-the hs-sensor-shield YANG module for the Heimonen Solutions sensor shield.
+the ietf-hardware-state YANG module (RFC 8348) for the Heimonen Solutions sensor
+shield. The data model is ietf-hardware-state, the same as the other nodes, the
+netconfd module (SIL) is named hs-sensor-shield.
 
-/sensor-shield reports:
+Reports the following /hardware components:
 
- container              sensor    bus             values
- host                   -         device tree     serial-num, model
- particulate-matter     PMS7003   UART 9600 8N1   pm1-0, pm2-5, pm10 (ug/m3)
- carbon-dioxide         SCD41     I2C 0x62        co2 (ppm)
- air-quality            SGP41     I2C 0x59        voc-index, nox-index (1-500),
-                                                  voc-raw, nox-raw
- temperature-humidity   SHT41     I2C 0x44        temperature (C), humidity (%RH)
-                        (SCD41 built-in sensor as automatic fallback, see <sensor>)
- pressure               LPS22HB   I2C 0x5c/0x5d   pressure (hPa), temperature (C)
- illuminance            BH1750    I2C 0x23/0x5c   illuminance (lx)
+ * raspberry-pi  - ianahw:container, serial number and model read from the device tree
 
-Every sensor container carries <sensor> (part number), <oper-status> (ok or
-unavailable) and, when ok, <last-update>. When no SHT41 is detected,
-temperature-humidity is served from the SCD41's built-in temperature/humidity
-sensor and <sensor> reads SCD41 instead of SHT41.
+ ianahw:sensor components (parent raspberry-pi), all with value-scale milli:
+
+ name          sensor    value-type   units-display      value
+ temperature   SHT41     celsius      milli degrees      degrees C x 1000
+ humidity      SHT41     percent-RH   milli percent RH   %RH x 1000
+ pm1           PMS7003   other        PM1 particles      ug/m3 x 1000 (atmospheric)
+ pm25          PMS7003   other        PM25 particles     ug/m3 x 1000
+ pm10          PMS7003   other        PM10 particles     ug/m3 x 1000
+ co2           SCD41     other        milli ppm          ppm x 1000
+ voc-index     SGP41     other        milli VOC index    index x 1000
+ nox-index     SGP41     other        milli NOx index    index x 1000
+ pressure      LPS22HB   other        milli hPa          hPa x 1000
+ illuminance   BH1750    other        milli lux          lux x 1000
+
+Each sensor component also carries <mfg-name> and <model-name> of the sensor
+that produced the value. When no SHT41 is detected, temperature and humidity
+are served from the SCD41's built-in temperature/humidity sensor (+-0.8 C,
++-6 %RH instead of +-0.1 C, +-1 %RH) and their <model-name> reads SCD41.
+
+voc-index and nox-index are Sensirion gas indices (1..500), not concentrations:
+100 is the baseline learned from the previous ~24 h, higher is worse air than
+the baseline. They are 0 for the first 45 s after start; the VOC baseline needs
+~1 h and the NOx baseline ~5 h of operation before the values are meaningful.
+The NOx hotplate is conditioned for 10 s after start as required by the SGP41.
 
 The sensors are sampled continuously by the module:
 
  * an I2C thread samples the SHT41, SGP41, SCD41, LPS22HB and BH1750 once per
-   second. The SGP41 raw signals are converted to VOC/NOx indices with the
-   Sensirion gas index algorithm (which requires 1 Hz sampling; the baseline
-   adapts over ~24 h, the index is 0 for the first 45 s and the NOx hotplate is
-   conditioned for the first 10 s). The SHT41 reading compensates the SGP41 (the SCD41's own temperature and
-   humidity are used when there is no SHT41).
-   The SCD41 runs in periodic mode (a sample every 5 s).
+   second. The SGP41 raw signals are converted with the Sensirion gas index
+   algorithm (requires 1 Hz sampling), compensated with the SHT41 temperature
+   and humidity (or the SCD41's when there is no SHT41). The SCD41 runs in
+   periodic mode (a sample every 5 s).
  * a UART thread reads the PMS7003 frames.
 
-A <get> returns the latest readings. A sensor whose last good reading is older
-than 5 s (15 s for the SCD41, 10 s for the PMS7003) or that was never found is
-reported with <oper-status>unavailable</oper-status> and no values. Sensors
-that are not found are probed again every 10 s.
+For the first 60 s after the module starts every sensor is reported with
+<oper-status>unavailable</oper-status> and no <value>, the sensors need that
+time to initialise after power up (SGP41 conditioning and gas index start up,
+SCD41 first samples, PMS7003 fan spin up).
+
+A <get> of /hardware returns the latest readings. A sensor whose last good
+reading is older than 5 s (15 s for the SCD41, 10 s for the PMS7003) or that
+was never found is reported with <oper-status>unavailable</oper-status> and no
+<value>. Sensors that are not found are probed again every 10 s.
 
 # Wiring
  I2C sensors: SDA -> GPIO 2, SCL -> GPIO 3 (i2c1, 100 kHz default)
@@ -79,8 +95,6 @@ Installed netconfd and yangcli
  make
  make install
 
-The YANG module is installed to /usr/share/yuma/modules/hs-sensor-shield/.
-
 # Testing installation
 
  netconfd --module=hs-sensor-shield --no-startup --superuser=$USER
@@ -88,56 +102,43 @@ The YANG module is installed to /usr/share/yuma/modules/hs-sensor-shield/.
 Other terminal:
  yangcli --server=localhost --user=$USER
 
-yangcli pi@localhost> xget /sensor-shield
+yangcli pi@localhost> xget /hardware
 ...
   data {
-    sensor-shield {
-      host {
-        serial-num 000000008c18491c
-        model 'Raspberry Pi 4 Model B Rev 1.4'
+    hardware {
+      last-change 2026-08-28T15:00:00Z
+      component raspberry-pi {
+        name raspberry-pi
+        class ianahw:container
+        serial-num 1000000020eec729
+        mfg-name 'Raspberry Pi'
+        model-name '4 Model B Rev 1.5'
       }
-      particulate-matter {
-        sensor PMS7003
-        oper-status ok
-        last-update 2026-08-28T12:00:01Z
-        pm1-0 3
-        pm2-5 5
-        pm10 6
+      component temperature {
+        name temperature
+        class ianahw:sensor
+        parent raspberry-pi
+        mfg-name Sensirion
+        model-name SHT41
+        sensor-data {
+          value 23450
+          value-type celsius
+          value-scale milli
+          value-precision 2
+          oper-status ok
+          value-timestamp 2026-08-28T15:00:01Z
+          value-update-rate 1000
+          units-display 'milli degrees'
+        }
       }
-      carbon-dioxide {
-        sensor SCD41
-        oper-status ok
-        last-update 2026-08-28T12:00:00Z
-        co2 612
-      }
-      air-quality {
-        sensor SGP41
-        oper-status ok
-        last-update 2026-08-28T12:00:01Z
-        voc-index 103
-        nox-index 1
-        voc-raw 30105
-        nox-raw 15899
-      }
-      temperature-humidity {
-        sensor SHT41
-        oper-status ok
-        last-update 2026-08-28T12:00:01Z
-        temperature 23.41
-        humidity 41.27
-      }
-      pressure {
-        sensor LPS22HB
-        oper-status ok
-        last-update 2026-08-28T12:00:01Z
-        pressure 1006.83
-        temperature 24.10
-      }
-      illuminance {
-        sensor BH1750
-        oper-status ok
-        last-update 2026-08-28T12:00:01Z
-        illuminance 312.5
-      }
+      component humidity { ... }
+      component pm1 { ... }
+      component pm25 { ... }
+      component pm10 { ... }
+      component co2 { ... }
+      component voc-index { ... }
+      component nox-index { ... }
+      component pressure { ... }
+      component illuminance { ... }
     }
   }

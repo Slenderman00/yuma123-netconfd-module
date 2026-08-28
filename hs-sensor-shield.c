@@ -1,7 +1,9 @@
 /*
-    module hs-sensor-shield (SIL for the hs-sensor-shield YANG module)
+    module hs-sensor-shield (SIL for the ietf-hardware-state YANG module,
+    RFC 8348)
 
-    Raspberry Pi implementation for the Heimonen Solutions sensor shield:
+    Raspberry Pi implementation for the Heimonen Solutions sensor shield,
+    every measurement is a ianahw:sensor component under /hardware:
       - PM1.0/PM2.5/PM10        Plantower PMS7003     UART (/dev/serial0)
       - CO2                     Sensirion SCD41       I2C 0x62
       - VOC / NOx index         Sensirion SGP41       I2C 0x59
@@ -11,9 +13,9 @@
 
     The sensors are sampled continuously by two background threads
     (the SGP41 gas index algorithm has to run at 1 Hz and the PMS7003
-    streams frames on its own). A <get> of /sensor-shield returns a
-    snapshot of the latest readings; a sensor whose last good reading
-    is too old is reported with <oper-status>unavailable</oper-status>.
+    streams frames on its own). A <get> of /hardware returns a snapshot
+    of the latest readings; a sensor whose last good reading is too old
+    is reported with <oper-status>unavailable</oper-status>.
  */
 
 #define _DEFAULT_SOURCE
@@ -62,8 +64,7 @@
 #include "bh1750.h"
 #include "pms7003.h"
 
-#define HS_SENSOR_SHIELD_MOD "hs-sensor-shield"
-#define HS_SENSOR_SHIELD_NS  "urn:heimonen-solutions:yang:hs-sensor-shield"
+#define HARDWARE_STATE_MOD "ietf-hardware-state"
 
 /* I2C sensors are sampled once per second (required by the gas index
    algorithm, GasIndexAlgorithm_DEFAULT_SAMPLING_INTERVAL) */
@@ -76,6 +77,12 @@
 #define PROBE_RETRY_S 10
 /* consecutive SCD41 bus errors before it is re-initialised */
 #define SCD41_MAX_ERRORS 3
+/* seconds without a new SCD41 sample before periodic mode is restarted */
+#define SCD41_MAX_IDLE_S 20
+
+/* the sensors need time to initialise after power up: for this long after
+   the module starts every sensor is reported unavailable, no values */
+#define WARMUP_S 60
 
 /* a reading older than this is reported as unavailable */
 #define MAX_AGE_I2C_S     5
@@ -85,9 +92,11 @@
 #define BUFSIZE 8*1024
 
 /* module static variables */
-static ncx_module_t *hs_sensor_shield_mod;
-static obj_template_t *sensor_shield_obj;
+static ncx_module_t *ietf_hardware_state_mod;
+static obj_template_t *hardware_obj;
+static char last_change[32];
 static char serial_num[64];
+static struct timespec start_time; /* CLOCK_MONOTONIC, module start */
 static char model_name[64];
 
 /* latest readings, shared between the sampler threads and the getter */
@@ -139,6 +148,11 @@ static void format_timestamp(time_t t, char *buf, size_t len)
     strftime(buf, len, "%Y-%m-%dT%H:%M:%SZ", &tm);
 }
 
+static void timestamp_now(char *buf, size_t len)
+{
+    format_timestamp(time(NULL), buf, len);
+}
+
 static void sleep_ms(unsigned ms)
 {
     struct timespec ts;
@@ -185,6 +199,7 @@ static void *i2c_sampler(void *arg)
     int conditioning_left = SGP41_CONDITIONING_S;
     int scd41_running = 0;
     int scd41_errors = 0;
+    int scd41_idle_ticks = 0; /* ticks without a new SCD41 sample */
     uint8_t lps22hb_addr = 0;
     uint8_t bh1750_addr = 0;
     uint16_t rh_ticks = SGP41_DEFAULT_RH_TICKS;
@@ -247,6 +262,7 @@ static void *i2c_sampler(void *arg)
                 scd4x_start_periodic_measurement() == 0) {
                 scd41_running = 1;
                 scd41_errors = 0;
+                scd41_idle_ticks = 0;
             }
         } else {
             int ready = 0;
@@ -257,8 +273,14 @@ static void *i2c_sampler(void *arg)
                 }
             } else {
                 scd41_errors = 0;
+                /* a sample is due every 5 s; if none arrives for a long time
+                   periodic measurement was stopped behind our back, restart */
+                if (!ready && ++scd41_idle_ticks >= SCD41_MAX_IDLE_S) {
+                    scd41_running = 0;
+                }
                 if (ready && scd4x_read_measurement(&co2, &scd_temperature,
                                                     &scd_humidity) == 0) {
+                    scd41_idle_ticks = 0;
                     /* without an SHT41 the SCD41's own (less accurate)
                        temperature/humidity compensate the SGP41 */
                     if (!sht41_ok) {
@@ -408,41 +430,75 @@ static int is_available(time_t last_update, time_t now, time_t max_age)
            now - last_update <= max_age;
 }
 
-/* <container><sensor/><oper-status/>[<last-update/>] ... */
-static size_t sensor_open(char *buf, size_t used, const char *container,
-                          const char *part, int available, time_t last_update)
+/*
+ * One ianahw:sensor component (RFC 8348). All values are reported with
+ * value-scale milli. When the sensor is not available <oper-status> is
+ * unavailable and no <value>/<value-timestamp> is reported.
+ */
+static size_t append_sensor(char *buf, size_t used, const char *name,
+                            const char *mfg_name, const char *model_name,
+                            int available, long value,
+                            const char *value_type, time_t last_update,
+                            unsigned update_rate_ms,
+                            const char *units_display)
 {
     used = xml_append(buf, used,
-                      "<%s><sensor>%s</sensor><oper-status>%s</oper-status>",
-                      container, part, available ? "ok" : "unavailable");
+        "  <component>"
+        "    <name>%s</name>"
+        "    <class>ianahw:sensor</class>"
+        "    <parent>raspberry-pi</parent>"
+        "    <mfg-name>%s</mfg-name>"
+        "    <model-name>%s</model-name>"
+        "    <sensor-data>",
+        name, mfg_name, model_name);
     if (available) {
         char timestamp[32];
         format_timestamp(last_update, timestamp, sizeof(timestamp));
-        used = xml_append(buf, used, "<last-update>%s</last-update>",
-                          timestamp);
+        used = xml_append(buf, used,
+            "        <value>%ld</value>"
+            "        <value-type>%s</value-type>"
+            "        <value-scale>milli</value-scale>"
+            "        <value-precision>2</value-precision>"
+            "        <oper-status>ok</oper-status>"
+            "        <value-timestamp>%s</value-timestamp>"
+            "        <value-update-rate>%u</value-update-rate>"
+            "        <units-display>%s</units-display>",
+            value, value_type, timestamp, update_rate_ms, units_display);
+    } else {
+        used = xml_append(buf, used,
+            "        <value-type>%s</value-type>"
+            "        <value-scale>milli</value-scale>"
+            "        <value-precision>2</value-precision>"
+            "        <oper-status>unavailable</oper-status>"
+            "        <value-update-rate>%u</value-update-rate>"
+            "        <units-display>%s</units-display>",
+            value_type, update_rate_ms, units_display);
     }
-    return used;
+    return xml_append(buf, used,
+        "    </sensor-data>"
+        "  </component>");
 }
 
-static size_t sensor_close(char *buf, size_t used, const char *container)
+static long milli(float value)
 {
-    return xml_append(buf, used, "</%s>", container);
+    return (long)(value * 1000.0f + (value >= 0 ? 0.5f : -0.5f));
 }
 
 /* Registered callback functions */
 
 static status_t
-    get_sensor_shield(ses_cb_t *scb,
-                      getcb_mode_t cbmode,
-                      val_value_t *vir_val,
-                      val_value_t *dst_val)
+    get_hardware(ses_cb_t *scb,
+                 getcb_mode_t cbmode,
+                 val_value_t *vir_val,
+                 val_value_t *dst_val)
 {
     status_t res;
     char buf[BUFSIZE];
     size_t used = 0;
     shield_state_t s;
     time_t now = time(NULL);
-    int available;
+    struct timespec now_mono;
+    int pm_ok, scd_ok, sgp_ok, sht_ok, lps_ok, bh_ok;
 
     (void)scb;
     (void)cbmode;
@@ -451,94 +507,91 @@ static status_t
     s = state;
     pthread_mutex_unlock(&state_lock);
 
-    used = xml_append(buf, used,
-        "<sensor-shield xmlns=\"" HS_SENSOR_SHIELD_NS "\">"
-        "<host>"
-        "<serial-num>%s</serial-num>"
-        "<model>%s</model>"
-        "</host>",
-        serial_num, model_name);
-
-    /* Plantower PMS7003 */
-    available = is_available(s.pm_time, now, MAX_AGE_PMS7003_S);
-    used = sensor_open(buf, used, "particulate-matter", "PMS7003",
-                       available, s.pm_time);
-    if (available) {
-        used = xml_append(buf, used,
-                          "<pm1-0>%u</pm1-0><pm2-5>%u</pm2-5><pm10>%u</pm10>",
-                          s.pm1_0, s.pm2_5, s.pm10);
-    }
-    used = sensor_close(buf, used, "particulate-matter");
-
-    /* Sensirion SCD41 */
-    available = is_available(s.scd_time, now, MAX_AGE_SCD41_S);
-    used = sensor_open(buf, used, "carbon-dioxide", "SCD41",
-                       available, s.scd_time);
-    if (available) {
-        used = xml_append(buf, used, "<co2>%u</co2>", s.co2);
-    }
-    used = sensor_close(buf, used, "carbon-dioxide");
-
-    /* Sensirion SGP41 */
-    available = is_available(s.sgp_time, now, MAX_AGE_I2C_S);
-    used = sensor_open(buf, used, "air-quality", "SGP41",
-                       available, s.sgp_time);
-    if (available) {
-        used = xml_append(buf, used,
-                          "<voc-index>%d</voc-index>"
-                          "<nox-index>%d</nox-index>"
-                          "<voc-raw>%u</voc-raw>"
-                          "<nox-raw>%u</nox-raw>",
-                          (int)s.voc_index, (int)s.nox_index,
-                          s.sraw_voc, s.sraw_nox);
-    }
-    used = sensor_close(buf, used, "air-quality");
-
-    /* Sensirion SHT41, falling back to the SCD41's built-in temperature
-       and humidity sensor when there is no SHT41 */
-    if (is_available(s.sht_time, now, MAX_AGE_I2C_S)) {
-        used = sensor_open(buf, used, "temperature-humidity", "SHT41",
-                           1, s.sht_time);
-        used = xml_append(buf, used,
-                          "<temperature>%.2f</temperature>"
-                          "<humidity>%.2f</humidity>",
-                          s.temperature, s.humidity);
-    } else if (is_available(s.scd_time, now, MAX_AGE_SCD41_S)) {
-        used = sensor_open(buf, used, "temperature-humidity", "SCD41",
-                           1, s.scd_time);
-        used = xml_append(buf, used,
-                          "<temperature>%.2f</temperature>"
-                          "<humidity>%.2f</humidity>",
-                          s.scd_temperature, s.scd_humidity);
+    clock_gettime(CLOCK_MONOTONIC, &now_mono);
+    if (now_mono.tv_sec - start_time.tv_sec < WARMUP_S) {
+        /* still warming up: serve no sensor values at all */
+        pm_ok = scd_ok = sgp_ok = sht_ok = lps_ok = bh_ok = 0;
     } else {
-        used = sensor_open(buf, used, "temperature-humidity", "SHT41",
-                           0, 0);
+        pm_ok  = is_available(s.pm_time,  now, MAX_AGE_PMS7003_S);
+        scd_ok = is_available(s.scd_time, now, MAX_AGE_SCD41_S);
+        sgp_ok = is_available(s.sgp_time, now, MAX_AGE_I2C_S);
+        sht_ok = is_available(s.sht_time, now, MAX_AGE_I2C_S);
+        lps_ok = is_available(s.lps_time, now, MAX_AGE_I2C_S);
+        bh_ok  = is_available(s.bh_time,  now, MAX_AGE_I2C_S);
     }
-    used = sensor_close(buf, used, "temperature-humidity");
 
-    /* ST LPS22HB */
-    available = is_available(s.lps_time, now, MAX_AGE_I2C_S);
-    used = sensor_open(buf, used, "pressure", "LPS22HB",
-                       available, s.lps_time);
-    if (available) {
-        used = xml_append(buf, used,
-                          "<pressure>%.2f</pressure>"
-                          "<temperature>%.2f</temperature>",
-                          s.pressure, s.lps_temperature);
+    /* /hardware */
+    used = xml_append(buf, used,
+        "<hardware xmlns=\"urn:ietf:params:xml:ns:yang:ietf-hardware-state\""
+        "          xmlns:ianahw=\"urn:ietf:params:xml:ns:yang:iana-hardware\">"
+        "  <last-change>%s</last-change>"
+        "  <component>"
+        "    <name>raspberry-pi</name>"
+        "    <class>ianahw:container</class>"
+        "    <serial-num>%s</serial-num>"
+        "    <mfg-name>Raspberry Pi</mfg-name>"
+        "    <model-name>%s</model-name>"
+        "  </component>",
+        last_change, serial_num, model_name);
+
+    /* temperature / humidity: Sensirion SHT41, with the SCD41's built-in
+       temperature/humidity sensor as automatic fallback */
+    if (sht_ok) {
+        used = append_sensor(buf, used, "temperature", "Sensirion", "SHT41",
+                             1, milli(s.temperature), "celsius",
+                             s.sht_time, 1000, "milli degrees");
+        used = append_sensor(buf, used, "humidity", "Sensirion", "SHT41",
+                             1, milli(s.humidity), "percent-RH",
+                             s.sht_time, 1000, "milli percent RH");
+    } else if (scd_ok) {
+        used = append_sensor(buf, used, "temperature", "Sensirion", "SCD41",
+                             1, milli(s.scd_temperature), "celsius",
+                             s.scd_time, 5000, "milli degrees");
+        used = append_sensor(buf, used, "humidity", "Sensirion", "SCD41",
+                             1, milli(s.scd_humidity), "percent-RH",
+                             s.scd_time, 5000, "milli percent RH");
+    } else {
+        used = append_sensor(buf, used, "temperature", "Sensirion", "SHT41",
+                             0, 0, "celsius", 0, 1000, "milli degrees");
+        used = append_sensor(buf, used, "humidity", "Sensirion", "SHT41",
+                             0, 0, "percent-RH", 0, 1000, "milli percent RH");
     }
-    used = sensor_close(buf, used, "pressure");
 
-    /* ROHM BH1750 */
-    available = is_available(s.bh_time, now, MAX_AGE_I2C_S);
-    used = sensor_open(buf, used, "illuminance", "BH1750",
-                       available, s.bh_time);
-    if (available) {
-        used = xml_append(buf, used, "<illuminance>%.1f</illuminance>",
-                          s.illuminance);
-    }
-    used = sensor_close(buf, used, "illuminance");
+    /* Plantower PMS7003: ug/m3 (atmospheric environment), reported x1000 */
+    used = append_sensor(buf, used, "pm1", "Plantower", "PMS7003",
+                         pm_ok, (long)s.pm1_0 * 1000, "other",
+                         s.pm_time, 1000, "PM1 particles");
+    used = append_sensor(buf, used, "pm25", "Plantower", "PMS7003",
+                         pm_ok, (long)s.pm2_5 * 1000, "other",
+                         s.pm_time, 1000, "PM25 particles");
+    used = append_sensor(buf, used, "pm10", "Plantower", "PMS7003",
+                         pm_ok, (long)s.pm10 * 1000, "other",
+                         s.pm_time, 1000, "PM10 particles");
 
-    used = xml_append(buf, used, "</sensor-shield>");
+    /* Sensirion SCD41: ppm, reported x1000 */
+    used = append_sensor(buf, used, "co2", "Sensirion", "SCD41",
+                         scd_ok, (long)s.co2 * 1000, "other",
+                         s.scd_time, 5000, "milli ppm");
+
+    /* Sensirion SGP41: gas index 1..500, reported x1000 */
+    used = append_sensor(buf, used, "voc-index", "Sensirion", "SGP41",
+                         sgp_ok, (long)s.voc_index * 1000, "other",
+                         s.sgp_time, 1000, "milli VOC index");
+    used = append_sensor(buf, used, "nox-index", "Sensirion", "SGP41",
+                         sgp_ok, (long)s.nox_index * 1000, "other",
+                         s.sgp_time, 1000, "milli NOx index");
+
+    /* ST LPS22HB: hPa, reported x1000 */
+    used = append_sensor(buf, used, "pressure", "ST", "LPS22HB",
+                         lps_ok, milli(s.pressure), "other",
+                         s.lps_time, 1000, "milli hPa");
+
+    /* ROHM BH1750: lux, reported x1000 */
+    used = append_sensor(buf, used, "illuminance", "ROHM", "BH1750",
+                         bh_ok, milli(s.illuminance), "other",
+                         s.bh_time, 1000, "milli lux");
+
+    used = xml_append(buf, used, "</hardware>");
 
     res = val_set_cplxval_obj(dst_val,
                               vir_val->obj,
@@ -566,18 +619,18 @@ status_t
     agt_profile = agt_get_profile();
 
     res = ncxmod_load_module(
-        (const xmlChar *)HS_SENSOR_SHIELD_MOD,
+        (const xmlChar *)HARDWARE_STATE_MOD,
         NULL,
         &agt_profile->agt_savedevQ,
-        &hs_sensor_shield_mod);
+        &ietf_hardware_state_mod);
     if (res != NO_ERR) {
         return res;
     }
 
-    sensor_shield_obj = ncx_find_object(
-        hs_sensor_shield_mod,
-        (const xmlChar *)"sensor-shield");
-    if (sensor_shield_obj == NULL) {
+    hardware_obj = ncx_find_object(
+        ietf_hardware_state_mod,
+        (const xmlChar *)"hardware");
+    if (hardware_obj == NULL) {
         return SET_ERROR(ERR_NCX_DEF_NOT_FOUND);
     }
 
@@ -587,14 +640,21 @@ status_t
 status_t y_hs_sensor_shield_init2(void)
 {
     cfg_template_t *runningcfg;
-    val_value_t *sensor_shield_val;
+    val_value_t *hardware_val;
 
+    timestamp_now(last_change, sizeof(last_change));
     read_dt_string("/proc/device-tree/serial-number",
                    serial_num, sizeof(serial_num), "unknown");
     read_dt_string("/proc/device-tree/model",
                    model_name, sizeof(model_name), "Raspberry Pi");
+    /* the device tree model repeats the manufacturer ("Raspberry Pi 4 Model B
+       Rev 1.5"), report mfg-name "Raspberry Pi" and model-name "4 Model B..." */
+    if (strncmp(model_name, "Raspberry Pi ", 13) == 0) {
+        memmove(model_name, model_name + 13, strlen(model_name + 13) + 1);
+    }
 
     memset(&state, 0, sizeof(state));
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
     sensirion_i2c_hal_init();
     start_sampler_threads();
 
@@ -603,14 +663,14 @@ status_t y_hs_sensor_shield_init2(void)
         return SET_ERROR(ERR_INTERNAL_VAL);
     }
 
-    sensor_shield_val = val_new_value();
-    assert(sensor_shield_val != NULL);
+    hardware_val = val_new_value();
+    assert(hardware_val != NULL);
 
-    val_init_virtual(sensor_shield_val,
-                     get_sensor_shield,
-                     sensor_shield_obj);
+    val_init_virtual(hardware_val,
+                     get_hardware,
+                     hardware_obj);
 
-    val_add_child(sensor_shield_val, runningcfg->root);
+    val_add_child(hardware_val, runningcfg->root);
 
     return NO_ERR;
 }
