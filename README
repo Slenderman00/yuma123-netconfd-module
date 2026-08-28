@@ -1,30 +1,68 @@
 # Overview
-ietf-hardware-state-2 module for netconfd, Raspberry Pi implementation of the
-ietf-hardware-state YANG module (named with a -2 suffix so it does not collide with
-the other ietf-hardware-state module installed on the server).
+hs-sensor-shield module for netconfd (yuma123): Raspberry Pi implementation of
+the hs-sensor-shield YANG module for the Heimonen Solutions sensor shield.
 
-Reports the following /hardware components (RFC 8348 ietf-hardware-state):
+/sensor-shield reports:
 
- * raspberry-pi  - ianahw:container, serial number and model read from the device tree
- * temperature   - ianahw:sensor, Sensirion STS3x on I2C (/dev/i2c-1, address 0x4a),
-                   celsius, value-scale milli
- * pm1, pm25, pm10 - ianahw:sensor, Plantower PMS7003 on UART (/dev/serial0),
-                   atmospheric ug/m3 multiplied by 1000, value-scale milli
+ container              sensor    bus             values
+ host                   -         device tree     serial-num, model
+ particulate-matter     PMS7003   UART 9600 8N1   pm1-0, pm2-5, pm10 (ug/m3)
+ carbon-dioxide         SCD41     I2C 0x62        co2 (ppm)
+ air-quality            SGP41     I2C 0x59        voc-index, nox-index (1-500),
+                                                  voc-raw, nox-raw
+ temperature-humidity   SHT41     I2C 0x44        temperature (C), humidity (%RH)
+ pressure               LPS22HB   I2C 0x5c/0x5d   pressure (hPa), temperature (C)
+ illuminance            BH1750    I2C 0x23/0x5c   illuminance (lx)
 
-The sensors are read in-process when /hardware is retrieved. If a sensor can not be
-read its <sensor-data> is reported with <oper-status>unavailable</oper-status>.
+Every sensor container carries <sensor> (part number), <oper-status> (ok or
+unavailable) and, when ok, <last-update>.
+
+The sensors are sampled continuously by the module:
+
+ * an I2C thread samples the SHT41, SGP41, SCD41, LPS22HB and BH1750 once per
+   second. The SGP41 raw signals are converted to VOC/NOx indices with the
+   Sensirion gas index algorithm (which requires 1 Hz sampling; the baseline
+   adapts over ~24 h, the index is 0 for the first 45 s and the NOx hotplate is
+   conditioned for the first 10 s). The SHT41 reading compensates the SGP41 (the SCD41's own temperature and
+   humidity are used when there is no SHT41).
+   The SCD41 runs in periodic mode (a sample every 5 s).
+ * a UART thread reads the PMS7003 frames.
+
+A <get> returns the latest readings. A sensor whose last good reading is older
+than 5 s (15 s for the SCD41, 10 s for the PMS7003) or that was never found is
+reported with <oper-status>unavailable</oper-status> and no values. Sensors
+that are not found are probed again every 10 s.
 
 # Wiring
- STS3x:   SDA -> GPIO 2, SCL -> GPIO 3 (i2c1)
- PMS7003: TX  -> GPIO 15 (RXD, /dev/serial0), 5V, GND
+ I2C sensors: SDA -> GPIO 2, SCL -> GPIO 3 (i2c1, 100 kHz default)
+ PMS7003:     TX  -> GPIO 15 (RXD, /dev/serial0), 5V, GND
+
+The LPS22HB address depends on its SA0 pin and the BH1750 address on its ADDR
+pin; both alternatives are probed (the LPS22HB is identified by WHO_AM_I first,
+the BH1750 takes the other address).
 
 # Raspberry Pi configuration
-/boot/firmware/config.txt:
+With raspi-config (Interface Options): enable I2C, enable the serial port
+hardware and disable the login shell over serial. Non-interactively:
+
+ sudo raspi-config nonint do_i2c 0
+ sudo raspi-config nonint do_serial_hw 0
+ sudo raspi-config nonint do_serial_cons 1
+ sudo reboot
+
+which results in /boot/firmware/config.txt containing
  dtparam=i2c_arm=on
  enable_uart=1
+and no console=serial0,... in /boot/firmware/cmdline.txt.
 
-Make sure the serial console is not enabled on /dev/serial0
-(no console=serial0,... in /boot/firmware/cmdline.txt).
+The BH1750 DVI (reset / I2C reference) pin is wired to GPIO23 on the shield and
+must be driven high, add to /boot/firmware/config.txt:
+ gpio=23=op,dh
+
+Note that the SGP41 (0x59) does not show up in i2cdetect (it NACKs the empty
+probe) although it works; the expected scan shows 23, 44, 5c and 62.
+
+Check with: sudo i2cdetect -y 1 (apt-get install i2c-tools)
 
 The serial device can be overridden with the PMS7003_DEVICE environment variable.
 
@@ -38,60 +76,65 @@ Installed netconfd and yangcli
  make
  make install
 
+The YANG module is installed to /usr/share/yuma/modules/hs-sensor-shield/.
+
 # Testing installation
 
- netconfd --module=ietf-hardware-state-2 --no-startup --superuser=$USER
+ netconfd --module=hs-sensor-shield --no-startup --superuser=$USER
 
 Other terminal:
  yangcli --server=localhost --user=$USER
 
-yangcli pi@localhost> xget /hardware
+yangcli pi@localhost> xget /sensor-shield
 ...
   data {
-    hardware {
-      last-change 2026-08-18T16:30:00Z
-      component raspberry-pi {
-        name raspberry-pi
-        class ianahw:container
+    sensor-shield {
+      host {
         serial-num 000000008c18491c
-        mfg-name 'Raspberry Pi'
-        model-name 'Zero 2 W Rev 1.0'
+        model 'Raspberry Pi 4 Model B Rev 1.4'
       }
-      component temperature {
-        name temperature
-        class ianahw:sensor
-        parent raspberry-pi
-        sensor-data {
-          value 23450
-          value-type celsius
-          value-scale milli
-          value-precision 2
-          oper-status ok
-          value-timestamp 2026-08-18T16:31:02Z
-          value-update-rate 0
-          units-display 'milli degrees'
-        }
+      particulate-matter {
+        sensor PMS7003
+        oper-status ok
+        last-update 2026-08-28T12:00:01Z
+        pm1-0 3
+        pm2-5 5
+        pm10 6
       }
-      component pm1 {
-        name pm1
-        class ianahw:sensor
-        parent raspberry-pi
-        sensor-data {
-          value 3000
-          value-type other
-          value-scale milli
-          value-precision 2
-          oper-status ok
-          value-timestamp 2026-08-18T16:31:02Z
-          value-update-rate 0
-          units-display 'PM1 particles'
-        }
+      carbon-dioxide {
+        sensor SCD41
+        oper-status ok
+        last-update 2026-08-28T12:00:00Z
+        co2 612
       }
-      component pm25 {
-        ...
+      air-quality {
+        sensor SGP41
+        oper-status ok
+        last-update 2026-08-28T12:00:01Z
+        voc-index 103
+        nox-index 1
+        voc-raw 30105
+        nox-raw 15899
       }
-      component pm10 {
-        ...
+      temperature-humidity {
+        sensor SHT41
+        oper-status ok
+        last-update 2026-08-28T12:00:01Z
+        temperature 23.41
+        humidity 41.27
+      }
+      pressure {
+        sensor LPS22HB
+        oper-status ok
+        last-update 2026-08-28T12:00:01Z
+        pressure 1006.83
+        temperature 24.10
+      }
+      illuminance {
+        sensor BH1750
+        oper-status ok
+        last-update 2026-08-28T12:00:01Z
+        illuminance 312.5
       }
     }
   }

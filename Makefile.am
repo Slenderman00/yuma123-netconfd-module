@@ -1,17 +1,36 @@
-netconfmodule_LTLIBRARIES = libietf-hardware-state-2.la
+netconfmodule_LTLIBRARIES = libhs-sensor-shield.la
 
-libietf_hardware_state_2_la_SOURCES = \
-    sensirion_i2c_hal.c \
-    sensirion_i2c.c \
+libhs_sensor_shield_la_SOURCES = \
+    sensirion_config.h \
+    sensirion_common.h \
     sensirion_common.c \
-    sts3x_i2c.c \
+    sensirion_i2c.h \
+    sensirion_i2c.c \
+    sensirion_i2c_hal.h \
+    sensirion_i2c_hal.c \
+    sensirion_gas_index_algorithm.h \
+    sensirion_gas_index_algorithm.c \
+    sht4x.h \
+    sht4x.c \
+    scd4x.h \
+    scd4x.c \
+    sgp41.h \
+    sgp41.c \
+    lps22hb.h \
+    lps22hb.c \
+    bh1750.h \
+    bh1750.c \
+    pms7003.h \
     pms7003.c \
-    ietf-hardware-state-2.c
+    hs-sensor-shield.c
 
 # Depends on installed libyuma-dev
-libietf_hardware_state_2_la_CPPFLAGS = -I${includedir}/yuma/agt -I${includedir}/yuma/ncx -I${includedir}/yuma/platform $(XML_CPPFLAGS) -I.
-libietf_hardware_state_2_la_LDFLAGS = -module -lyumaagt -lyumancx
+libhs_sensor_shield_la_CPPFLAGS = -I${includedir}/yuma/agt -I${includedir}/yuma/ncx -I${includedir}/yuma/platform $(XML_CPPFLAGS) -I. -pthread
+libhs_sensor_shield_la_LDFLAGS = -module -lyumaagt -lyumancx -pthread
 
-# The YANG modules implemented by this netconfd module. netconfd loads them
-# from libyuma-base (/usr/share/yuma/modules/ietf); copies are kept here for reference.
-EXTRA_DIST = ietf-hardware-state@2018-03-13.yang iana-hardware@2018-03-13.yang
+# The YANG module implemented by this netconfd module, installed where
+# netconfd searches for modules (/usr/share/yuma/modules/...)
+yangdir = $(datadir)/yuma/modules/hs-sensor-shield
+yang_DATA = hs-sensor-shield@2026-08-28.yang
+
+EXTRA_DIST = $(yang_DATA)

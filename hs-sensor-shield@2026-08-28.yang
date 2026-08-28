@@ -1,0 +1,236 @@
+module hs-sensor-shield {
+  yang-version 1.1;
+  namespace "urn:heimonen-solutions:yang:hs-sensor-shield";
+  prefix hs-ss;
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+
+  organization
+    "Heimonen Solutions";
+  contact
+    "Joar Heimonen <spam@joar.me>";
+  description
+    "Operational state of the Heimonen Solutions sensor shield for the
+     Raspberry Pi.
+
+     The shield carries the following sensors:
+
+       PMS7003  - PM1.0 / PM2.5 / PM10 laser scattering particulate
+                  matter sensor, 0.3 um resolution, UART 9600 8N1
+       SCD41    - CO2, photoacoustic NDIR, 400-5000 ppm, +-(40 ppm + 5 %)
+       SGP41    - VOC and NOx index 1-500, baseline adaptive over ~24 h
+       SHT41    - temperature +-0.1 C and humidity +-1 %RH typical
+       LPS22HB  - barometric pressure 260-1260 hPa, +-0.1 hPa after OPC
+       BH1750   - illuminance 1-65535 lx, photopic response
+
+     Every sensor is sampled continuously by the server; a retrieval
+     returns the most recent reading of each sensor together with its
+     operational status.";
+
+  revision 2026-08-28 {
+    description
+      "Initial revision.";
+  }
+
+  typedef oper-status {
+    type enumeration {
+      enum ok {
+        description
+          "The sensor is present and the reported values are current.";
+      }
+      enum unavailable {
+        description
+          "The sensor could not be read (not detected on the bus, bus
+           error, checksum failure or the last reading is too old).
+           No measurement leafs are reported.";
+      }
+    }
+    description
+      "Operational status of a sensor.";
+  }
+
+  typedef gas-index {
+    type uint16 {
+      range "0..500";
+    }
+    description
+      "Sensirion gas index. 1..500 where 100 is the learned baseline
+       (typical air over the last ~24 h), values above 100 mean worse
+       than baseline and below 100 better. 0 is reported during the
+       first 45 s after start while the algorithm is initialising.";
+  }
+
+  grouping sensor-status {
+    description
+      "Status leafs common to all sensors on the shield.";
+    leaf sensor {
+      type string;
+      description
+        "Part number of the sensor providing the measurements.";
+    }
+    leaf oper-status {
+      type oper-status;
+      description
+        "Operational status of the sensor.";
+    }
+    leaf last-update {
+      type yang:date-and-time;
+      description
+        "Time of the last successful reading of the sensor. Present
+         only when oper-status is 'ok'.";
+    }
+  }
+
+  container sensor-shield {
+    config false;
+    description
+      "Sensor shield state.";
+
+    container host {
+      description
+        "The Raspberry Pi the shield is mounted on.";
+      leaf serial-num {
+        type string;
+        description
+          "Serial number of the Raspberry Pi (device tree
+           /serial-number).";
+      }
+      leaf model {
+        type string;
+        description
+          "Model of the Raspberry Pi (device tree /model).";
+      }
+    }
+
+    container particulate-matter {
+      description
+        "Particulate matter, Plantower PMS7003 on the UART.
+         Atmospheric environment values.";
+      uses sensor-status;
+      leaf pm1-0 {
+        type uint16;
+        units "ug/m3";
+        description
+          "PM1.0 mass concentration.";
+      }
+      leaf pm2-5 {
+        type uint16;
+        units "ug/m3";
+        description
+          "PM2.5 mass concentration.";
+      }
+      leaf pm10 {
+        type uint16;
+        units "ug/m3";
+        description
+          "PM10 mass concentration.";
+      }
+    }
+
+    container carbon-dioxide {
+      description
+        "Carbon dioxide, Sensirion SCD41 on I2C (0x62).";
+      uses sensor-status;
+      leaf co2 {
+        type uint16;
+        units "ppm";
+        description
+          "CO2 concentration. Specified range 400-5000 ppm,
+           accuracy +-(40 ppm + 5 %).";
+      }
+    }
+
+    container air-quality {
+      description
+        "VOC and NOx, Sensirion SGP41 on I2C (0x59). The raw signals are
+         converted with the Sensirion gas index algorithm, humidity and
+         temperature compensated with the SHT41 readings.";
+      uses sensor-status;
+      leaf voc-index {
+        type gas-index;
+        description
+          "VOC index, relative to the baseline learned over ~24 h.";
+      }
+      leaf nox-index {
+        type gas-index;
+        description
+          "NOx index, relative to the baseline learned over ~24 h.
+           Reacts on combustion events.";
+      }
+      leaf voc-raw {
+        type uint16;
+        description
+          "Raw VOC signal (SRAW_VOC) as reported by the sensor.";
+      }
+      leaf nox-raw {
+        type uint16;
+        description
+          "Raw NOx signal (SRAW_NOX) as reported by the sensor.";
+      }
+    }
+
+    container temperature-humidity {
+      description
+        "Temperature and relative humidity, Sensirion SHT41 on I2C
+         (0x44).";
+      uses sensor-status;
+      leaf temperature {
+        type decimal64 {
+          fraction-digits 2;
+        }
+        units "celsius";
+        description
+          "Temperature, +-0.1 C typical.";
+      }
+      leaf humidity {
+        type decimal64 {
+          fraction-digits 2;
+          range "0..100";
+        }
+        units "percent";
+        description
+          "Relative humidity, +-1 %RH typical.";
+      }
+    }
+
+    container pressure {
+      description
+        "Barometric pressure, ST LPS22HB on I2C (0x5c or 0x5d).";
+      uses sensor-status;
+      leaf pressure {
+        type decimal64 {
+          fraction-digits 2;
+        }
+        units "hPa";
+        description
+          "Absolute pressure, 260-1260 hPa, +-0.1 hPa after one point
+           calibration.";
+      }
+      leaf temperature {
+        type decimal64 {
+          fraction-digits 2;
+        }
+        units "celsius";
+        description
+          "Temperature measured by the pressure sensor die (less
+           accurate than temperature-humidity/temperature).";
+      }
+    }
+
+    container illuminance {
+      description
+        "Ambient light, ROHM BH1750 on I2C (0x23 or 0x5c).";
+      uses sensor-status;
+      leaf illuminance {
+        type decimal64 {
+          fraction-digits 1;
+        }
+        units "lux";
+        description
+          "Illuminance, 1-65535 lx, photopic response.";
+      }
+    }
+  }
+}

@@ -1,3 +1,15 @@
+yuma123-netconfd-module-hs-sensor-shield (1.0) bookworm; urgency=medium
+
+  * New hs-sensor-shield YANG module and netconfd module for the Heimonen
+    Solutions sensor shield: PMS7003 (PM1.0/PM2.5/PM10), SCD41 (CO2),
+    SGP41 (VOC/NOx index, Sensirion gas index algorithm), SHT41
+    (temperature/humidity), LPS22HB (pressure) and BH1750 (illuminance)
+  * Sensors are sampled continuously by background threads, <get> returns
+    the latest readings with per sensor oper-status and last-update
+  * Replaces the ietf-hardware-state-2 STS3x/PMS7003 module
+
+ -- Joar Heimonen <spam@joar.me>  Fri, 28 Aug 2026 12:00:00 +0200
+
 yuma123-netconfd-module-ietf-hardware-state-2-raspberry-pi (1.1) bookworm; urgency=medium
 
   * Renamed module to ietf-hardware-state-2 to not collide with the other
