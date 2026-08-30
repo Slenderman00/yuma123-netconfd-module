@@ -76,10 +76,14 @@
 #define PMS7003_TIMEOUT_MS 3000
 /* sensors that were not found are probed again this often */
 #define PROBE_RETRY_S 10
-/* consecutive SCD41 bus errors before it is re-initialised */
-#define SCD41_MAX_ERRORS 3
+/* consecutive seconds of SCD41 bus errors before it is re-initialised */
+#define SCD41_MAX_ERRORS 10
 /* seconds without a new SCD41 sample before periodic mode is restarted */
-#define SCD41_MAX_IDLE_S 20
+#define SCD41_MAX_IDLE_S 30
+/* after a (re)start of periodic measurement the SCD41's self heating
+   compensation ramps up for minutes and its temperature/humidity read
+   high: do not use them (fallback reporting, SGP41 compensation) before */
+#define SCD41_SETTLE_S 300
 
 /* the sensors need time to initialise after power up: for this long after
    the module starts every sensor is reported unavailable, no values */
@@ -125,6 +129,9 @@ typedef struct shield_state_t_ {
     uint16_t co2;
     float scd_temperature;
     float scd_humidity;
+    time_t scd_started;  /* CLOCK_MONOTONIC seconds of the last (re)start */
+    unsigned scd_restarts;
+    unsigned scd_errors_total;
     /* SGP41 */
     time_t sgp_time;
     uint16_t sraw_voc;
@@ -204,6 +211,13 @@ static void timestamp_now(char *buf, size_t len)
     format_timestamp(time(NULL), buf, len);
 }
 
+static time_t now_mono_s(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec;
+}
+
 static void sleep_ms(unsigned ms)
 {
     struct timespec ts;
@@ -251,6 +265,7 @@ static void *i2c_sampler(void *arg)
     int scd41_running = 0;
     int scd41_errors = 0;
     int scd41_idle_ticks = 0; /* ticks without a new SCD41 sample */
+    const char *scd41_restart_reason = "module start";
     uint8_t lps22hb_addr = 0;
     uint8_t bh1750_addr = 0;
     uint16_t rh_ticks = SGP41_DEFAULT_RH_TICKS;
@@ -309,18 +324,38 @@ static void *i2c_sampler(void *arg)
         if (!scd41_running) {
             /* stop is acknowledged in idle mode too and leaves the sensor
                in a known state after a restart of netconfd */
-            if (probe && scd4x_stop_periodic_measurement() == 0 &&
-                scd4x_start_periodic_measurement() == 0) {
-                scd41_running = 1;
-                scd41_errors = 0;
-                scd41_idle_ticks = 0;
+            if (probe) {
+                int16_t e1 = scd4x_stop_periodic_measurement();
+                int16_t e2 = e1 ? -1 : scd4x_start_periodic_measurement();
+                if (e1 == 0 && e2 == 0) {
+                    scd41_running = 1;
+                    scd41_errors = 0;
+                    scd41_idle_ticks = 0;
+                    pthread_mutex_lock(&state_lock);
+                    state.scd_started = now_mono_s();
+                    state.scd_restarts++;
+                    log_info("\nhs-sensor-shield: SCD41 periodic measurement "
+                             "started (#%u, %s)", state.scd_restarts,
+                             scd41_restart_reason);
+                    pthread_mutex_unlock(&state_lock);
+                } else {
+                    log_info("\nhs-sensor-shield: SCD41 start failed "
+                             "(stop=%d start=%d)", e1, e2);
+                }
             }
         } else {
             int ready = 0;
             float scd_temperature, scd_humidity;
-            if (scd4x_get_data_ready_status(&ready) != 0) {
+            int16_t err = scd4x_get_data_ready_status(&ready);
+            if (err != 0) {
+                pthread_mutex_lock(&state_lock);
+                state.scd_errors_total++;
+                pthread_mutex_unlock(&state_lock);
+                log_info("\nhs-sensor-shield: SCD41 data-ready error %d "
+                         "(%d consecutive)", err, scd41_errors + 1);
                 if (++scd41_errors >= SCD41_MAX_ERRORS) {
                     scd41_running = 0;
+                    scd41_restart_reason = "bus errors";
                 }
             } else {
                 scd41_errors = 0;
@@ -328,22 +363,39 @@ static void *i2c_sampler(void *arg)
                    periodic measurement was stopped behind our back, restart */
                 if (!ready && ++scd41_idle_ticks >= SCD41_MAX_IDLE_S) {
                     scd41_running = 0;
+                    scd41_restart_reason = "no samples";
+                    log_info("\nhs-sensor-shield: SCD41 no sample for %d s",
+                             SCD41_MAX_IDLE_S);
                 }
-                if (ready && scd4x_read_measurement(&co2, &scd_temperature,
-                                                    &scd_humidity) == 0) {
-                    scd41_idle_ticks = 0;
-                    /* without an SHT41 the SCD41's own (less accurate)
-                       temperature/humidity compensate the SGP41 */
-                    if (!sht41_ok) {
-                        rh_ticks = sgp41_rh_to_ticks(scd_humidity);
-                        t_ticks = sgp41_t_to_ticks(scd_temperature);
+                if (ready) {
+                    err = scd4x_read_measurement(&co2, &scd_temperature,
+                                                 &scd_humidity);
+                    if (err != 0) {
+                        pthread_mutex_lock(&state_lock);
+                        state.scd_errors_total++;
+                        pthread_mutex_unlock(&state_lock);
+                        log_info("\nhs-sensor-shield: SCD41 read error %d",
+                                 err);
                     }
+                }
+                if (ready && err == 0) {
+                    time_t started;
+                    scd41_idle_ticks = 0;
                     pthread_mutex_lock(&state_lock);
+                    started = state.scd_started;
                     state.co2 = co2;
                     state.scd_temperature = scd_temperature;
                     state.scd_humidity = scd_humidity;
                     state.scd_time = now;
                     pthread_mutex_unlock(&state_lock);
+                    /* without an SHT41 the SCD41's own (less accurate)
+                       temperature/humidity compensate the SGP41, but not
+                       while the SCD41 is settling after a (re)start */
+                    if (!sht41_ok &&
+                        now_mono_s() - started >= SCD41_SETTLE_S) {
+                        rh_ticks = sgp41_rh_to_ticks(scd_humidity);
+                        t_ticks = sgp41_t_to_ticks(scd_temperature);
+                    }
                 }
             }
         }
@@ -551,6 +603,7 @@ static status_t
     struct timespec now_mono;
     int pm_ok, scd_ok, sgp_ok, sht_ok, lps_ok, bh_ok;
     int quiet;
+    int scd_settled;
 
     (void)scb;
     (void)cbmode;
@@ -578,6 +631,8 @@ static status_t
         sht_ok = 0;
         sgp_ok = 0;
     }
+    /* SCD41 temperature/humidity read high for minutes after a (re)start */
+    scd_settled = (now_mono.tv_sec - s.scd_started >= SCD41_SETTLE_S);
 
     /* /hardware */
     used = xml_append(buf, used,
@@ -602,7 +657,7 @@ static status_t
         used = append_sensor(buf, used, "humidity", "Sensirion", "SHT41",
                              1, milli(s.humidity), "percent-RH",
                              s.sht_time, 1000, "milli percent RH");
-    } else if (scd_ok && !quiet) {
+    } else if (scd_ok && !quiet && scd_settled) {
         used = append_sensor(buf, used, "temperature", "Sensirion", "SCD41",
                              1, milli(s.scd_temperature), "celsius",
                              s.scd_time, 5000, "milli degrees");
