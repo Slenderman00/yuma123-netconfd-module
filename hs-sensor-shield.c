@@ -40,6 +40,7 @@
 #include "agt_not.h"
 #include "agt_rpc.h"
 #include "dlq.h"
+#include "log.h"
 #include "ncx.h"
 #include "ncxmod.h"
 #include "ncxtypes.h"
@@ -84,6 +85,13 @@
    the module starts every sensor is reported unavailable, no values */
 #define WARMUP_S 60
 
+/* daily quiet window (local time) during which the heat sensitive
+   measurements (temperature, humidity, voc-index, nox-index) are not
+   reported: the system maintenance jobs (apt, man-db, fstrim, ...) run at
+   midnight and heat up the board. HH:MM-HH:MM, empty string disables. */
+#define QUIET_WINDOW_ENV "HS_SENSOR_SHIELD_QUIET_WINDOW"
+#define QUIET_WINDOW_DEFAULT "00:00-01:00"
+
 /* a reading older than this is reported as unavailable */
 #define MAX_AGE_I2C_S     5
 #define MAX_AGE_SCD41_S   15 /* new sample every 5 s */
@@ -97,6 +105,8 @@ static obj_template_t *hardware_obj;
 static char last_change[32];
 static char serial_num[64];
 static struct timespec start_time; /* CLOCK_MONOTONIC, module start */
+static int quiet_start = -1; /* minutes since midnight, -1 = no window */
+static int quiet_end = -1;
 static char model_name[64];
 
 /* latest readings, shared between the sampler threads and the getter */
@@ -146,6 +156,47 @@ static void format_timestamp(time_t t, char *buf, size_t len)
     struct tm tm;
     gmtime_r(&t, &tm);
     strftime(buf, len, "%Y-%m-%dT%H:%M:%SZ", &tm);
+}
+
+/* parse "HH:MM-HH:MM" into quiet_start/quiet_end */
+static void init_quiet_window(void)
+{
+    const char *spec = getenv(QUIET_WINDOW_ENV);
+    int sh, sm, eh, em;
+
+    if (spec == NULL) {
+        spec = QUIET_WINDOW_DEFAULT;
+    }
+    quiet_start = quiet_end = -1;
+    if (*spec == '\0') {
+        return;
+    }
+    if (sscanf(spec, "%d:%d-%d:%d", &sh, &sm, &eh, &em) == 4 &&
+        sh >= 0 && sh < 24 && sm >= 0 && sm < 60 &&
+        eh >= 0 && eh < 24 && em >= 0 && em < 60) {
+        quiet_start = sh * 60 + sm;
+        quiet_end = eh * 60 + em;
+    } else {
+        log_warn("hs-sensor-shield: ignoring invalid %s='%s'",
+                 QUIET_WINDOW_ENV, spec);
+    }
+}
+
+/* 1 while inside the quiet window (local time), windows may wrap midnight */
+static int in_quiet_window(time_t now)
+{
+    struct tm tm;
+    int minutes;
+
+    if (quiet_start < 0 || quiet_start == quiet_end) {
+        return 0;
+    }
+    localtime_r(&now, &tm);
+    minutes = tm.tm_hour * 60 + tm.tm_min;
+    if (quiet_start < quiet_end) {
+        return minutes >= quiet_start && minutes < quiet_end;
+    }
+    return minutes >= quiet_start || minutes < quiet_end;
 }
 
 static void timestamp_now(char *buf, size_t len)
@@ -499,6 +550,7 @@ static status_t
     time_t now = time(NULL);
     struct timespec now_mono;
     int pm_ok, scd_ok, sgp_ok, sht_ok, lps_ok, bh_ok;
+    int quiet;
 
     (void)scb;
     (void)cbmode;
@@ -518,6 +570,13 @@ static status_t
         sht_ok = is_available(s.sht_time, now, MAX_AGE_I2C_S);
         lps_ok = is_available(s.lps_time, now, MAX_AGE_I2C_S);
         bh_ok  = is_available(s.bh_time,  now, MAX_AGE_I2C_S);
+    }
+    /* maintenance window: the board heats up, do not report the heat
+       sensitive measurements (co2, pm, pressure and light are kept) */
+    quiet = in_quiet_window(now);
+    if (quiet) {
+        sht_ok = 0;
+        sgp_ok = 0;
     }
 
     /* /hardware */
@@ -543,7 +602,7 @@ static status_t
         used = append_sensor(buf, used, "humidity", "Sensirion", "SHT41",
                              1, milli(s.humidity), "percent-RH",
                              s.sht_time, 1000, "milli percent RH");
-    } else if (scd_ok) {
+    } else if (scd_ok && !quiet) {
         used = append_sensor(buf, used, "temperature", "Sensirion", "SCD41",
                              1, milli(s.scd_temperature), "celsius",
                              s.scd_time, 5000, "milli degrees");
@@ -655,6 +714,7 @@ status_t y_hs_sensor_shield_init2(void)
 
     memset(&state, 0, sizeof(state));
     clock_gettime(CLOCK_MONOTONIC, &start_time);
+    init_quiet_window();
     sensirion_i2c_hal_init();
     start_sampler_threads();
 
