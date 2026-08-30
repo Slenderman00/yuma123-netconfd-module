@@ -84,6 +84,14 @@
    compensation ramps up and its temperature/humidity read high for a long
    time: do not use them (fallback reporting, SGP41 compensation) before.
    Seconds, overridable with the environment variable below. */
+/* the Raspberry Pi heats the shield through the header/ground plane: while
+   the SoC is at or above SOC_MAX_C and for SOC_HOLD_S afterwards the
+   temperature/humidity are reported unavailable */
+#define SOC_TEMP_PATH "/sys/class/thermal/thermal_zone0/temp"
+#define SOC_MAX_ENV "HS_SENSOR_SHIELD_SOC_MAX_C"
+#define SOC_MAX_C_DEFAULT 50.0f
+#define SOC_HOLD_ENV "HS_SENSOR_SHIELD_SOC_HOLD_S"
+#define SOC_HOLD_S_DEFAULT 900
 #define SCD41_SETTLE_ENV "HS_SENSOR_SHIELD_SCD41_SETTLE_S"
 #define SCD41_SETTLE_S_DEFAULT 3600
 
@@ -113,6 +121,8 @@ static char serial_num[64];
 static struct timespec start_time; /* CLOCK_MONOTONIC, module start */
 static int quiet_start = -1; /* minutes since midnight, -1 = no window */
 static long scd41_settle_s = SCD41_SETTLE_S_DEFAULT;
+static float soc_max_c = SOC_MAX_C_DEFAULT;
+static long soc_hold_s = SOC_HOLD_S_DEFAULT;
 static int quiet_end = -1;
 static char model_name[64];
 
@@ -148,6 +158,10 @@ typedef struct shield_state_t_ {
     /* BH1750 */
     time_t bh_time;
     float illuminance;
+    /* Raspberry Pi SoC */
+    float soc_temperature;
+    time_t soc_hot_until; /* CLOCK_MONOTONIC seconds, temperature/humidity
+                             are blanked until then */
 } shield_state_t;
 
 static shield_state_t state;
@@ -166,6 +180,50 @@ static void format_timestamp(time_t t, char *buf, size_t len)
     struct tm tm;
     gmtime_r(&t, &tm);
     strftime(buf, len, "%Y-%m-%dT%H:%M:%SZ", &tm);
+}
+
+static void init_soc_limits(void)
+{
+    const char *v;
+    char *end;
+
+    soc_max_c = SOC_MAX_C_DEFAULT;
+    soc_hold_s = SOC_HOLD_S_DEFAULT;
+    v = getenv(SOC_MAX_ENV);
+    if (v != NULL && *v != '\0') {
+        float f = strtof(v, &end);
+        if (*end == '\0' && f > 0.0f) {
+            soc_max_c = f;
+        } else {
+            log_warn("hs-sensor-shield: ignoring invalid %s='%s'", SOC_MAX_ENV, v);
+        }
+    }
+    v = getenv(SOC_HOLD_ENV);
+    if (v != NULL && *v != '\0') {
+        long l = strtol(v, &end, 10);
+        if (*end == '\0' && l >= 0) {
+            soc_hold_s = l;
+        } else {
+            log_warn("hs-sensor-shield: ignoring invalid %s='%s'", SOC_HOLD_ENV, v);
+        }
+    }
+}
+
+/* SoC temperature in degrees Celsius, <0 if it can not be read */
+static float read_soc_temperature(void)
+{
+    FILE *fp = fopen(SOC_TEMP_PATH, "r");
+    long milli;
+
+    if (fp == NULL) {
+        return -1.0f;
+    }
+    if (fscanf(fp, "%ld", &milli) != 1) {
+        fclose(fp);
+        return -1.0f;
+    }
+    fclose(fp);
+    return (float)milli / 1000.0f;
 }
 
 static void init_scd41_settle(void)
@@ -310,6 +368,27 @@ static void *i2c_sampler(void *arg)
         uint16_t sraw_voc, sraw_nox;
         uint16_t co2;
         struct timespec now_mono;
+
+        /* Raspberry Pi SoC: heats the shield, blank temperature/humidity
+           while hot and for a while afterwards */
+        {
+            float soc = read_soc_temperature();
+            time_t mono = now_mono_s();
+            pthread_mutex_lock(&state_lock);
+            state.soc_temperature = soc;
+            if (soc >= soc_max_c) {
+                if (state.soc_hot_until < mono) {
+                    log_info("\nhs-sensor-shield: SoC %.1f C >= %.1f C, "
+                             "temperature/humidity blanked", soc, soc_max_c);
+                }
+                state.soc_hot_until = mono + soc_hold_s;
+            } else if (state.soc_hot_until != 0 &&
+                       state.soc_hot_until == mono) {
+                log_info("\nhs-sensor-shield: SoC %.1f C, hold time over, "
+                         "temperature/humidity reported again", soc);
+            }
+            pthread_mutex_unlock(&state_lock);
+        }
 
         /* SHT41 temperature and humidity, also used to compensate the SGP41 */
         sht41_ok = (sht4x_measure_high_precision(&temperature, &humidity) == 0);
@@ -626,6 +705,7 @@ static status_t
     int pm_ok, scd_ok, sgp_ok, sht_ok, lps_ok, bh_ok;
     int quiet;
     int scd_settled;
+    int soc_hot;
 
     (void)scb;
     (void)cbmode;
@@ -655,6 +735,11 @@ static status_t
     }
     /* SCD41 temperature/humidity read high for minutes after a (re)start */
     scd_settled = (now_mono.tv_sec - s.scd_started >= scd41_settle_s);
+    /* the Pi is (or recently was) heating the shield */
+    soc_hot = (now_mono.tv_sec < s.soc_hot_until);
+    if (soc_hot) {
+        sht_ok = 0;
+    }
 
     /* /hardware */
     used = xml_append(buf, used,
@@ -679,7 +764,7 @@ static status_t
         used = append_sensor(buf, used, "humidity", "Sensirion", "SHT41",
                              1, milli(s.humidity), "percent-RH",
                              s.sht_time, 1000, "milli percent RH");
-    } else if (scd_ok && !quiet && scd_settled) {
+    } else if (scd_ok && !quiet && scd_settled && !soc_hot) {
         used = append_sensor(buf, used, "temperature", "Sensirion", "SCD41",
                              1, milli(s.scd_temperature), "celsius",
                              s.scd_time, 5000, "milli degrees");
@@ -793,6 +878,7 @@ status_t y_hs_sensor_shield_init2(void)
     clock_gettime(CLOCK_MONOTONIC, &start_time);
     init_quiet_window();
     init_scd41_settle();
+    init_soc_limits();
     sensirion_i2c_hal_init();
     start_sampler_threads();
 
