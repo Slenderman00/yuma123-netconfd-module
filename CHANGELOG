@@ -8,7 +8,7 @@ yuma123-netconfd-module-hs-sensor-shield (1.0) bookworm; urgency=medium
   * SCD41 built-in temperature/humidity used automatically when no SHT41
   * No sensor values are served during the first 60 s after start
   * SCD41 temperature/humidity not reported nor used for SGP41 compensation
-    for 5 min after a (re)start of periodic measurement (readings are ~2 C
+    for 1 h (HS_SENSOR_SHIELD_SCD41_SETTLE_S) after a (re)start of periodic measurement (readings are ~2 C
     high while its self heating compensation settles); SCD41 bus errors
     and restarts are logged, restarts only after 10 s errors / 30 s idle
   * Daily quiet window (default 00:00-01:00, HS_SENSOR_SHIELD_QUIET_WINDOW)

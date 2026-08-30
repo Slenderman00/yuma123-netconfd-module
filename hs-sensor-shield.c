@@ -81,9 +81,11 @@
 /* seconds without a new SCD41 sample before periodic mode is restarted */
 #define SCD41_MAX_IDLE_S 30
 /* after a (re)start of periodic measurement the SCD41's self heating
-   compensation ramps up for minutes and its temperature/humidity read
-   high: do not use them (fallback reporting, SGP41 compensation) before */
-#define SCD41_SETTLE_S 300
+   compensation ramps up and its temperature/humidity read high for a long
+   time: do not use them (fallback reporting, SGP41 compensation) before.
+   Seconds, overridable with the environment variable below. */
+#define SCD41_SETTLE_ENV "HS_SENSOR_SHIELD_SCD41_SETTLE_S"
+#define SCD41_SETTLE_S_DEFAULT 3600
 
 /* the sensors need time to initialise after power up: for this long after
    the module starts every sensor is reported unavailable, no values */
@@ -110,6 +112,7 @@ static char last_change[32];
 static char serial_num[64];
 static struct timespec start_time; /* CLOCK_MONOTONIC, module start */
 static int quiet_start = -1; /* minutes since midnight, -1 = no window */
+static long scd41_settle_s = SCD41_SETTLE_S_DEFAULT;
 static int quiet_end = -1;
 static char model_name[64];
 
@@ -163,6 +166,25 @@ static void format_timestamp(time_t t, char *buf, size_t len)
     struct tm tm;
     gmtime_r(&t, &tm);
     strftime(buf, len, "%Y-%m-%dT%H:%M:%SZ", &tm);
+}
+
+static void init_scd41_settle(void)
+{
+    const char *spec = getenv(SCD41_SETTLE_ENV);
+    char *end;
+    long v;
+
+    scd41_settle_s = SCD41_SETTLE_S_DEFAULT;
+    if (spec == NULL || *spec == '\0') {
+        return;
+    }
+    v = strtol(spec, &end, 10);
+    if (*end == '\0' && v >= 0) {
+        scd41_settle_s = v;
+    } else {
+        log_warn("hs-sensor-shield: ignoring invalid %s='%s'",
+                 SCD41_SETTLE_ENV, spec);
+    }
 }
 
 /* parse "HH:MM-HH:MM" into quiet_start/quiet_end */
@@ -392,7 +414,7 @@ static void *i2c_sampler(void *arg)
                        temperature/humidity compensate the SGP41, but not
                        while the SCD41 is settling after a (re)start */
                     if (!sht41_ok &&
-                        now_mono_s() - started >= SCD41_SETTLE_S) {
+                        now_mono_s() - started >= scd41_settle_s) {
                         rh_ticks = sgp41_rh_to_ticks(scd_humidity);
                         t_ticks = sgp41_t_to_ticks(scd_temperature);
                     }
@@ -632,7 +654,7 @@ static status_t
         sgp_ok = 0;
     }
     /* SCD41 temperature/humidity read high for minutes after a (re)start */
-    scd_settled = (now_mono.tv_sec - s.scd_started >= SCD41_SETTLE_S);
+    scd_settled = (now_mono.tv_sec - s.scd_started >= scd41_settle_s);
 
     /* /hardware */
     used = xml_append(buf, used,
@@ -770,6 +792,7 @@ status_t y_hs_sensor_shield_init2(void)
     memset(&state, 0, sizeof(state));
     clock_gettime(CLOCK_MONOTONIC, &start_time);
     init_quiet_window();
+    init_scd41_settle();
     sensirion_i2c_hal_init();
     start_sampler_threads();
 
