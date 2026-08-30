@@ -80,25 +80,10 @@
 #define SCD41_MAX_ERRORS 10
 /* seconds without a new SCD41 sample before periodic mode is restarted */
 #define SCD41_MAX_IDLE_S 30
-/* the Raspberry Pi heats the shield through the header/ground plane: while
-   the SoC is at or above SOC_MAX_C and for SOC_HOLD_S afterwards the
-   temperature/humidity are reported unavailable */
-#define SOC_TEMP_PATH "/sys/class/thermal/thermal_zone0/temp"
-#define SOC_MAX_ENV "HS_SENSOR_SHIELD_SOC_MAX_C"
-#define SOC_MAX_C_DEFAULT 50.0f
-#define SOC_HOLD_ENV "HS_SENSOR_SHIELD_SOC_HOLD_S"
-#define SOC_HOLD_S_DEFAULT 900
 
 /* the sensors need time to initialise after power up: for this long after
    the module starts every sensor is reported unavailable, no values */
 #define WARMUP_S 60
-
-/* daily quiet window (local time) during which the heat sensitive
-   measurements (temperature, humidity, voc-index, nox-index) are not
-   reported: the system maintenance jobs (apt, man-db, fstrim, ...) run at
-   midnight and heat up the board. HH:MM-HH:MM, empty string disables. */
-#define QUIET_WINDOW_ENV "HS_SENSOR_SHIELD_QUIET_WINDOW"
-#define QUIET_WINDOW_DEFAULT "00:00-01:00"
 
 /* a reading older than this is reported as unavailable */
 #define MAX_AGE_I2C_S     5
@@ -113,10 +98,6 @@ static obj_template_t *hardware_obj;
 static char last_change[32];
 static char serial_num[64];
 static struct timespec start_time; /* CLOCK_MONOTONIC, module start */
-static int quiet_start = -1; /* minutes since midnight, -1 = no window */
-static float soc_max_c = SOC_MAX_C_DEFAULT;
-static long soc_hold_s = SOC_HOLD_S_DEFAULT;
-static int quiet_end = -1;
 static char model_name[64];
 
 /* latest readings, shared between the sampler threads and the getter */
@@ -150,10 +131,6 @@ typedef struct shield_state_t_ {
     /* BH1750 */
     time_t bh_time;
     float illuminance;
-    /* Raspberry Pi SoC */
-    float soc_temperature;
-    time_t soc_hot_until; /* CLOCK_MONOTONIC seconds, temperature/humidity
-                             are blanked until then */
 } shield_state_t;
 
 static shield_state_t state;
@@ -174,101 +151,9 @@ static void format_timestamp(time_t t, char *buf, size_t len)
     strftime(buf, len, "%Y-%m-%dT%H:%M:%SZ", &tm);
 }
 
-static void init_soc_limits(void)
-{
-    const char *v;
-    char *end;
-
-    soc_max_c = SOC_MAX_C_DEFAULT;
-    soc_hold_s = SOC_HOLD_S_DEFAULT;
-    v = getenv(SOC_MAX_ENV);
-    if (v != NULL && *v != '\0') {
-        float f = strtof(v, &end);
-        if (*end == '\0' && f > 0.0f) {
-            soc_max_c = f;
-        } else {
-            log_warn("hs-sensor-shield: ignoring invalid %s='%s'", SOC_MAX_ENV, v);
-        }
-    }
-    v = getenv(SOC_HOLD_ENV);
-    if (v != NULL && *v != '\0') {
-        long l = strtol(v, &end, 10);
-        if (*end == '\0' && l >= 0) {
-            soc_hold_s = l;
-        } else {
-            log_warn("hs-sensor-shield: ignoring invalid %s='%s'", SOC_HOLD_ENV, v);
-        }
-    }
-}
-
-/* SoC temperature in degrees Celsius, <0 if it can not be read */
-static float read_soc_temperature(void)
-{
-    FILE *fp = fopen(SOC_TEMP_PATH, "r");
-    long milli;
-
-    if (fp == NULL) {
-        return -1.0f;
-    }
-    if (fscanf(fp, "%ld", &milli) != 1) {
-        fclose(fp);
-        return -1.0f;
-    }
-    fclose(fp);
-    return (float)milli / 1000.0f;
-}
-
-/* parse "HH:MM-HH:MM" into quiet_start/quiet_end */
-static void init_quiet_window(void)
-{
-    const char *spec = getenv(QUIET_WINDOW_ENV);
-    int sh, sm, eh, em;
-
-    if (spec == NULL) {
-        spec = QUIET_WINDOW_DEFAULT;
-    }
-    quiet_start = quiet_end = -1;
-    if (*spec == '\0') {
-        return;
-    }
-    if (sscanf(spec, "%d:%d-%d:%d", &sh, &sm, &eh, &em) == 4 &&
-        sh >= 0 && sh < 24 && sm >= 0 && sm < 60 &&
-        eh >= 0 && eh < 24 && em >= 0 && em < 60) {
-        quiet_start = sh * 60 + sm;
-        quiet_end = eh * 60 + em;
-    } else {
-        log_warn("hs-sensor-shield: ignoring invalid %s='%s'",
-                 QUIET_WINDOW_ENV, spec);
-    }
-}
-
-/* 1 while inside the quiet window (local time), windows may wrap midnight */
-static int in_quiet_window(time_t now)
-{
-    struct tm tm;
-    int minutes;
-
-    if (quiet_start < 0 || quiet_start == quiet_end) {
-        return 0;
-    }
-    localtime_r(&now, &tm);
-    minutes = tm.tm_hour * 60 + tm.tm_min;
-    if (quiet_start < quiet_end) {
-        return minutes >= quiet_start && minutes < quiet_end;
-    }
-    return minutes >= quiet_start || minutes < quiet_end;
-}
-
 static void timestamp_now(char *buf, size_t len)
 {
     format_timestamp(time(NULL), buf, len);
-}
-
-static time_t now_mono_s(void)
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec;
 }
 
 static void sleep_ms(unsigned ms)
@@ -341,27 +226,6 @@ static void *i2c_sampler(void *arg)
         uint16_t sraw_voc, sraw_nox;
         uint16_t co2;
         struct timespec now_mono;
-
-        /* Raspberry Pi SoC: heats the shield, blank temperature/humidity
-           while hot and for a while afterwards */
-        {
-            float soc = read_soc_temperature();
-            time_t mono = now_mono_s();
-            pthread_mutex_lock(&state_lock);
-            state.soc_temperature = soc;
-            if (soc >= soc_max_c) {
-                if (state.soc_hot_until < mono) {
-                    log_info("\nhs-sensor-shield: SoC %.1f C >= %.1f C, "
-                             "temperature/humidity blanked", soc, soc_max_c);
-                }
-                state.soc_hot_until = mono + soc_hold_s;
-            } else if (state.soc_hot_until != 0 &&
-                       state.soc_hot_until == mono) {
-                log_info("\nhs-sensor-shield: SoC %.1f C, hold time over, "
-                         "temperature/humidity reported again", soc);
-            }
-            pthread_mutex_unlock(&state_lock);
-        }
 
         /* SHT41 temperature and humidity, also used to compensate the SGP41 */
         sht41_ok = (sht4x_measure_high_precision(&temperature, &humidity) == 0);
@@ -671,8 +535,6 @@ static status_t
     time_t now = time(NULL);
     struct timespec now_mono;
     int pm_ok, scd_ok, sgp_ok, sht_ok, lps_ok, bh_ok;
-    int quiet;
-    int soc_hot;
 
     (void)scb;
     (void)cbmode;
@@ -693,19 +555,6 @@ static status_t
         lps_ok = is_available(s.lps_time, now, MAX_AGE_I2C_S);
         bh_ok  = is_available(s.bh_time,  now, MAX_AGE_I2C_S);
     }
-    /* maintenance window: the board heats up, do not report the heat
-       sensitive measurements (co2, pm, pressure and light are kept) */
-    quiet = in_quiet_window(now);
-    if (quiet) {
-        sht_ok = 0;
-        sgp_ok = 0;
-    }
-    /* the Pi is (or recently was) heating the shield */
-    soc_hot = (now_mono.tv_sec < s.soc_hot_until);
-    if (soc_hot) {
-        sht_ok = 0;
-    }
-
     /* /hardware */
     used = xml_append(buf, used,
         "<hardware xmlns=\"urn:ietf:params:xml:ns:yang:ietf-hardware-state\""
@@ -729,7 +578,7 @@ static status_t
         used = append_sensor(buf, used, "humidity", "Sensirion", "SHT41",
                              1, milli(s.humidity), "percent-RH",
                              s.sht_time, 1000, "milli percent RH");
-    } else if (scd_ok && !quiet && !soc_hot) {
+    } else if (scd_ok) {
         used = append_sensor(buf, used, "temperature", "Sensirion", "SCD41",
                              1, milli(s.scd_temperature), "celsius",
                              s.scd_time, 5000, "milli degrees");
@@ -841,8 +690,6 @@ status_t y_hs_sensor_shield_init2(void)
 
     memset(&state, 0, sizeof(state));
     clock_gettime(CLOCK_MONOTONIC, &start_time);
-    init_quiet_window();
-    init_soc_limits();
     sensirion_i2c_hal_init();
     start_sampler_threads();
 

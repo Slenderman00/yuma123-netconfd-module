@@ -7,16 +7,8 @@ yuma123-netconfd-module-hs-sensor-shield (1.0) bookworm; urgency=medium
     BH1750 (illuminance) as ianahw:sensor components
   * SCD41 built-in temperature/humidity used automatically when no SHT41
   * No sensor values are served during the first 60 s after start
-  * Temperature/humidity reported unavailable while the Pi SoC is >= 50 C
-    (HS_SENSOR_SHIELD_SOC_MAX_C) and for 15 min after (HS_SENSOR_SHIELD_SOC_HOLD_S),
-    the Pi heats the shield through the header
   * SCD41 bus errors and restarts are logged, restarts only after 10 s
     errors / 30 s idle
-  * Daily quiet window (default 00:00-01:00, HS_SENSOR_SHIELD_QUIET_WINDOW)
-    during which temperature, humidity, voc-index and nox-index are not
-    reported, for the midnight maintenance jobs that heat up the board
-  * Sensors are sampled continuously by background threads, <get> returns
-    the latest readings with per sensor oper-status and value-timestamp
   * Replaces the ietf-hardware-state-2 STS3x/PMS7003 module
 
  -- Joar Heimonen <spam@joar.me>  Fri, 28 Aug 2026 12:00:00 +0200

@@ -47,25 +47,9 @@ For the first 60 s after the module starts every sensor is reported with
 time to initialise after power up (SGP41 conditioning and gas index start up,
 SCD41 first samples, PMS7003 fan spin up).
 
-The Raspberry Pi heats the shield through the header and ground plane: a
-loaded SoC (60-75 C) raises the sensor temperature by ~5 C within two minutes
-and it takes ~15 minutes to decay. The module reads the SoC temperature every
-second; while it is at or above 50 C (HS_SENSOR_SHIELD_SOC_MAX_C) and for
-15 minutes afterwards (HS_SENSOR_SHIELD_SOC_HOLD_S) temperature and humidity
-are reported unavailable. Transitions are logged.
-
 Every SCD41 bus error and (re)start is logged to the netconfd log (log-level
 info); periodic measurement is only restarted after 10 s of consecutive bus
 errors or 30 s without a sample.
-
-The system maintenance jobs (apt-daily, man-db, fstrim, logrotate, ...) heat
-up the board; on the nodes their systemd timers are all moved to 00:00 (see
-below) and the module does not report the heat sensitive measurements
-(temperature, humidity, voc-index, nox-index) during a daily quiet window,
-00:00-01:00 local time by default. co2, pm*, pressure and illuminance are
-reported as usual. The window is set with the environment variable
-HS_SENSOR_SHIELD_QUIET_WINDOW=HH:MM-HH:MM (may wrap midnight), empty to
-disable.
 
 A <get> of /hardware returns the latest readings. A sensor whose last good
 reading is older than 5 s (15 s for the SCD41, 10 s for the PMS7003) or that
@@ -106,17 +90,10 @@ Check with: sudo i2cdetect -y 1 (apt-get install i2c-tools)
 The serial device can be overridden with the PMS7003_DEVICE environment variable.
 
 # Maintenance timers at midnight
-To keep the daily jobs inside the quiet window, on each node a drop-in moves
-the timers to midnight (apt-daily-upgrade to 00:30), without random delay:
-
- for t in apt-daily man-db fstrim logrotate e2scrub_all rpi-zram-writeback \
-          systemd-tmpfiles-clean dpkg-db-backup; do
-   sudo mkdir -p /etc/systemd/system/$t.timer.d
-   printf '[Timer]\nOnCalendar=\nOnBootSec=\nOnUnitActiveSec=\nOnCalendar=*-*-* 00:00:00\nRandomizedDelaySec=0\nAccuracySec=1min\nPersistent=false\n' \
-     | sudo tee /etc/systemd/system/$t.timer.d/midnight.conf
- done
- (same for apt-daily-upgrade.timer with 00:30:00)
- sudo systemctl daemon-reload
+The daily system jobs (apt-daily, man-db, fstrim, ...) load the Pi; on the
+nodes their systemd timers are moved to midnight (apt-daily-upgrade to 00:30)
+with drop-ins /etc/systemd/system/<timer>.d/midnight.conf so that they run at
+a known time.
 
 # Dependencies
 Installed netconfd and yangcli
