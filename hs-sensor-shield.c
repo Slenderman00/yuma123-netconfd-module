@@ -80,10 +80,6 @@
 #define SCD41_MAX_ERRORS 10
 /* seconds without a new SCD41 sample before periodic mode is restarted */
 #define SCD41_MAX_IDLE_S 30
-/* after a (re)start of periodic measurement the SCD41's self heating
-   compensation ramps up and its temperature/humidity read high for a long
-   time: do not use them (fallback reporting, SGP41 compensation) before.
-   Seconds, overridable with the environment variable below. */
 /* the Raspberry Pi heats the shield through the header/ground plane: while
    the SoC is at or above SOC_MAX_C and for SOC_HOLD_S afterwards the
    temperature/humidity are reported unavailable */
@@ -92,8 +88,6 @@
 #define SOC_MAX_C_DEFAULT 50.0f
 #define SOC_HOLD_ENV "HS_SENSOR_SHIELD_SOC_HOLD_S"
 #define SOC_HOLD_S_DEFAULT 900
-#define SCD41_SETTLE_ENV "HS_SENSOR_SHIELD_SCD41_SETTLE_S"
-#define SCD41_SETTLE_S_DEFAULT 3600
 
 /* the sensors need time to initialise after power up: for this long after
    the module starts every sensor is reported unavailable, no values */
@@ -120,7 +114,6 @@ static char last_change[32];
 static char serial_num[64];
 static struct timespec start_time; /* CLOCK_MONOTONIC, module start */
 static int quiet_start = -1; /* minutes since midnight, -1 = no window */
-static long scd41_settle_s = SCD41_SETTLE_S_DEFAULT;
 static float soc_max_c = SOC_MAX_C_DEFAULT;
 static long soc_hold_s = SOC_HOLD_S_DEFAULT;
 static int quiet_end = -1;
@@ -142,7 +135,6 @@ typedef struct shield_state_t_ {
     uint16_t co2;
     float scd_temperature;
     float scd_humidity;
-    time_t scd_started;  /* CLOCK_MONOTONIC seconds of the last (re)start */
     unsigned scd_restarts;
     unsigned scd_errors_total;
     /* SGP41 */
@@ -224,25 +216,6 @@ static float read_soc_temperature(void)
     }
     fclose(fp);
     return (float)milli / 1000.0f;
-}
-
-static void init_scd41_settle(void)
-{
-    const char *spec = getenv(SCD41_SETTLE_ENV);
-    char *end;
-    long v;
-
-    scd41_settle_s = SCD41_SETTLE_S_DEFAULT;
-    if (spec == NULL || *spec == '\0') {
-        return;
-    }
-    v = strtol(spec, &end, 10);
-    if (*end == '\0' && v >= 0) {
-        scd41_settle_s = v;
-    } else {
-        log_warn("hs-sensor-shield: ignoring invalid %s='%s'",
-                 SCD41_SETTLE_ENV, spec);
-    }
 }
 
 /* parse "HH:MM-HH:MM" into quiet_start/quiet_end */
@@ -433,7 +406,6 @@ static void *i2c_sampler(void *arg)
                     scd41_errors = 0;
                     scd41_idle_ticks = 0;
                     pthread_mutex_lock(&state_lock);
-                    state.scd_started = now_mono_s();
                     state.scd_restarts++;
                     log_info("\nhs-sensor-shield: SCD41 periodic measurement "
                              "started (#%u, %s)", state.scd_restarts,
@@ -480,20 +452,16 @@ static void *i2c_sampler(void *arg)
                     }
                 }
                 if (ready && err == 0) {
-                    time_t started;
                     scd41_idle_ticks = 0;
                     pthread_mutex_lock(&state_lock);
-                    started = state.scd_started;
                     state.co2 = co2;
                     state.scd_temperature = scd_temperature;
                     state.scd_humidity = scd_humidity;
                     state.scd_time = now;
                     pthread_mutex_unlock(&state_lock);
                     /* without an SHT41 the SCD41's own (less accurate)
-                       temperature/humidity compensate the SGP41, but not
-                       while the SCD41 is settling after a (re)start */
-                    if (!sht41_ok &&
-                        now_mono_s() - started >= scd41_settle_s) {
+                       temperature/humidity compensate the SGP41 */
+                    if (!sht41_ok) {
                         rh_ticks = sgp41_rh_to_ticks(scd_humidity);
                         t_ticks = sgp41_t_to_ticks(scd_temperature);
                     }
@@ -704,7 +672,6 @@ static status_t
     struct timespec now_mono;
     int pm_ok, scd_ok, sgp_ok, sht_ok, lps_ok, bh_ok;
     int quiet;
-    int scd_settled;
     int soc_hot;
 
     (void)scb;
@@ -733,8 +700,6 @@ static status_t
         sht_ok = 0;
         sgp_ok = 0;
     }
-    /* SCD41 temperature/humidity read high for minutes after a (re)start */
-    scd_settled = (now_mono.tv_sec - s.scd_started >= scd41_settle_s);
     /* the Pi is (or recently was) heating the shield */
     soc_hot = (now_mono.tv_sec < s.soc_hot_until);
     if (soc_hot) {
@@ -764,7 +729,7 @@ static status_t
         used = append_sensor(buf, used, "humidity", "Sensirion", "SHT41",
                              1, milli(s.humidity), "percent-RH",
                              s.sht_time, 1000, "milli percent RH");
-    } else if (scd_ok && !quiet && scd_settled && !soc_hot) {
+    } else if (scd_ok && !quiet && !soc_hot) {
         used = append_sensor(buf, used, "temperature", "Sensirion", "SCD41",
                              1, milli(s.scd_temperature), "celsius",
                              s.scd_time, 5000, "milli degrees");
@@ -877,7 +842,6 @@ status_t y_hs_sensor_shield_init2(void)
     memset(&state, 0, sizeof(state));
     clock_gettime(CLOCK_MONOTONIC, &start_time);
     init_quiet_window();
-    init_scd41_settle();
     init_soc_limits();
     sensirion_i2c_hal_init();
     start_sampler_threads();

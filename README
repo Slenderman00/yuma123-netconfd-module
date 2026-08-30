@@ -54,13 +54,9 @@ second; while it is at or above 50 C (HS_SENSOR_SHIELD_SOC_MAX_C) and for
 15 minutes afterwards (HS_SENSOR_SHIELD_SOC_HOLD_S) temperature and humidity
 are reported unavailable. Transitions are logged.
 
-After every (re)start of the SCD41's periodic measurement its self heating
-compensation ramps up for minutes and its temperature/humidity read ~2 C
-high for a long time: for 1 hour after a (re)start (environment variable
-HS_SENSOR_SHIELD_SCD41_SETTLE_S, seconds) they are neither reported
-(fallback) nor used to compensate the SGP41. Every SCD41 bus error and (re)start is
-logged to the netconfd log (log-level info); periodic measurement is only
-restarted after 10 s of consecutive bus errors or 30 s without a sample.
+Every SCD41 bus error and (re)start is logged to the netconfd log (log-level
+info); periodic measurement is only restarted after 10 s of consecutive bus
+errors or 30 s without a sample.
 
 The system maintenance jobs (apt-daily, man-db, fstrim, logrotate, ...) heat
 up the board; on the nodes their systemd timers are all moved to 00:00 (see

@@ -10,10 +10,8 @@ yuma123-netconfd-module-hs-sensor-shield (1.0) bookworm; urgency=medium
   * Temperature/humidity reported unavailable while the Pi SoC is >= 50 C
     (HS_SENSOR_SHIELD_SOC_MAX_C) and for 15 min after (HS_SENSOR_SHIELD_SOC_HOLD_S),
     the Pi heats the shield through the header
-  * SCD41 temperature/humidity not reported nor used for SGP41 compensation
-    for 1 h (HS_SENSOR_SHIELD_SCD41_SETTLE_S) after a (re)start of periodic measurement (readings are ~2 C
-    high while its self heating compensation settles); SCD41 bus errors
-    and restarts are logged, restarts only after 10 s errors / 30 s idle
+  * SCD41 bus errors and restarts are logged, restarts only after 10 s
+    errors / 30 s idle
   * Daily quiet window (default 00:00-01:00, HS_SENSOR_SHIELD_QUIET_WINDOW)
     during which temperature, humidity, voc-index and nox-index are not
     reported, for the midnight maintenance jobs that heat up the board
