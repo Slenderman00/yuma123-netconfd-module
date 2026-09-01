@@ -81,6 +81,10 @@
 /* seconds without a new SCD41 sample before periodic mode is restarted */
 #define SCD41_MAX_IDLE_S 30
 
+/* set to 1 to ignore the SHT41 (e.g. a damaged chip) and use the SCD41's
+   built in temperature/humidity sensor instead */
+#define IGNORE_SHT41_ENV "HS_SENSOR_SHIELD_IGNORE_SHT41"
+
 /* the sensors need time to initialise after power up: for this long after
    the module starts every sensor is reported unavailable, no values */
 #define WARMUP_S 60
@@ -98,6 +102,7 @@ static obj_template_t *hardware_obj;
 static char last_change[32];
 static char serial_num[64];
 static struct timespec start_time; /* CLOCK_MONOTONIC, module start */
+static int ignore_sht41 = 0;
 static char model_name[64];
 
 /* latest readings, shared between the sampler threads and the getter */
@@ -228,7 +233,8 @@ static void *i2c_sampler(void *arg)
         struct timespec now_mono;
 
         /* SHT41 temperature and humidity, also used to compensate the SGP41 */
-        sht41_ok = (sht4x_measure_high_precision(&temperature, &humidity) == 0);
+        sht41_ok = !ignore_sht41 &&
+            (sht4x_measure_high_precision(&temperature, &humidity) == 0);
         if (sht41_ok) {
             rh_ticks = sgp41_rh_to_ticks(humidity);
             t_ticks = sgp41_t_to_ticks(temperature);
@@ -688,6 +694,14 @@ status_t y_hs_sensor_shield_init2(void)
         memmove(model_name, model_name + 13, strlen(model_name + 13) + 1);
     }
 
+    {
+        const char *v = getenv(IGNORE_SHT41_ENV);
+        ignore_sht41 = (v != NULL && strcmp(v, "1") == 0);
+        if (ignore_sht41) {
+            log_info("\nhs-sensor-shield: SHT41 ignored (%s=1), using the "
+                     "SCD41 for temperature/humidity", IGNORE_SHT41_ENV);
+        }
+    }
     memset(&state, 0, sizeof(state));
     clock_gettime(CLOCK_MONOTONIC, &start_time);
     sensirion_i2c_hal_init();

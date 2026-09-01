@@ -47,6 +47,10 @@ For the first 60 s after the module starts every sensor is reported with
 time to initialise after power up (SGP41 conditioning and gas index start up,
 SCD41 first samples, PMS7003 fan spin up).
 
+Setting the environment variable HS_SENSOR_SHIELD_IGNORE_SHT41=1 makes the
+module ignore the SHT41 (e.g. a damaged chip) and serve temperature/humidity
+from the SCD41.
+
 Every SCD41 bus error and (re)start is logged to the netconfd log (log-level
 info); periodic measurement is only restarted after 10 s of consecutive bus
 errors or 30 s without a sample.
